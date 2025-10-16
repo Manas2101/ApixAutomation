@@ -1,0 +1,43 @@
+---
+apiVersion: apix.io/v1
+kind: APIMetadata
+metadata:
+  name: jenkins-mcp-api
+  version: v1.0.0
+  createdAt: '2025-10-16T22:44:41.863400'
+  updatedAt: '2025-10-16T22:44:41.863406'
+spec:
+  technicalName: jenkins-mcp-api
+  version: v1.0.0
+  snow:
+    businessApplicationId: APP001234
+  platform: gcp
+  lifecycle:
+    status: active
+  classification: internal
+  description: Jenkins MCP API for CI/CD automation
+  ownership:
+    team: DevOps Team
+    contact: devops-team@hsbc.com
+
+---
+apiVersion: apix.io/v1
+kind: APIMetadata
+metadata:
+  name: jenkins-pipeline-api
+  version: v2.0.0
+  createdAt: '2025-10-16T22:44:41.863409'
+  updatedAt: '2025-10-16T22:44:41.863410'
+spec:
+  technicalName: jenkins-pipeline-api
+  version: v2.0.0
+  snow:
+    businessApplicationId: APP001234
+  platform: gcp
+  lifecycle:
+    status: active
+  classification: internal
+  description: Jenkins Pipeline Management API
+  ownership:
+    team: DevOps Team
+    contact: devops-team@hsbc.com
