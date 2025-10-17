@@ -9,6 +9,7 @@ function App() {
   const [repoUrl, setRepoUrl] = useState('');
   const [githubToken, setGithubToken] = useState('');
   const [apiData, setApiData] = useState(null);
+  const [selectedApiIndex, setSelectedApiIndex] = useState(0);
   const [yamlContent, setYamlContent] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -37,6 +38,7 @@ function App() {
 
       if (response.data.found) {
         setApiData(response.data.data);
+        setSelectedApiIndex(0); // Reset to first API
         const count = response.data.count || 1;
         setSuccess(`Found ${count} API${count > 1 ? 's' : ''} in this repository!`);
       }
@@ -158,61 +160,111 @@ function App() {
             </div>
           )}
 
-          {/* API Data Display - Supports Multiple APIs */}
+          {/* API Data Display - With Dropdown for Multiple APIs */}
           {apiData && (
             <div className="mb-8 space-y-4">
-              <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-                <FileText size={20} />
-                API Information ({Array.isArray(apiData) ? apiData.length : 1} API{Array.isArray(apiData) && apiData.length > 1 ? 's' : ''})
-              </h3>
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                  <FileText size={20} />
+                  API Information ({Array.isArray(apiData) ? apiData.length : 1} API{Array.isArray(apiData) && apiData.length > 1 ? 's' : ''})
+                </h3>
+                
+                {/* Dropdown for multiple APIs */}
+                {Array.isArray(apiData) && apiData.length > 1 && (
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm font-semibold text-gray-600">Select API:</label>
+                    <select
+                      value={selectedApiIndex}
+                      onChange={(e) => setSelectedApiIndex(Number(e.target.value))}
+                      className="px-4 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500 bg-white"
+                    >
+                      {apiData.map((api, index) => (
+                        <option key={index} value={index}>
+                          {index + 1}. {api.api_technical_name} (v{api.version})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
               
-              {(Array.isArray(apiData) ? apiData : [apiData]).map((api, index) => (
-                <div key={index} className="p-6 bg-gray-50 rounded-lg border-2 border-gray-200">
-                  {Array.isArray(apiData) && apiData.length > 1 && (
-                    <div className="mb-3 pb-3 border-b border-gray-300">
-                      <span className="text-sm font-bold text-blue-600">API #{index + 1}</span>
-                    </div>
-                  )}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm font-semibold text-gray-600">Technical Name</p>
-                      <p className="text-gray-800">{api.api_technical_name}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-gray-600">Version</p>
-                      <p className="text-gray-800">{api.version}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-gray-600">Platform</p>
-                      <p className="text-gray-800 uppercase">{api.platform}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-gray-600">Lifecycle Status</p>
-                      <p className="text-gray-800 capitalize">{api.lifecycle_status}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-gray-600">Classification</p>
-                      <p className="text-gray-800 capitalize">{api.classification}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-gray-600">SNOW Business App ID</p>
-                      <p className="text-gray-800">{api.snow_business_application_id}</p>
-                    </div>
-                    <div className="col-span-2">
-                      <p className="text-sm font-semibold text-gray-600">Description</p>
-                      <p className="text-gray-800">{api.description}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-gray-600">Owner Team</p>
-                      <p className="text-gray-800">{api.owner_team}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-gray-600">Contact Email</p>
-                      <p className="text-gray-800">{api.contact_email}</p>
+              {/* Display selected API */}
+              {(() => {
+                const api = Array.isArray(apiData) ? apiData[selectedApiIndex] : apiData;
+                return (
+                  <div className="p-6 bg-gray-50 rounded-lg border-2 border-gray-200">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm font-semibold text-gray-600">Technical Name</p>
+                        <p className="text-gray-800">{api.api_technical_name}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-gray-600">Version</p>
+                        <p className="text-gray-800">{api.version}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-gray-600">Platform</p>
+                        <p className="text-gray-800 uppercase">{api.platform}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-gray-600">Lifecycle Status</p>
+                        <p className="text-gray-800 uppercase">{api.lifecycle_status}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-gray-600">Classification</p>
+                        <p className="text-gray-800 uppercase">{api.classification}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-gray-600">SNOW Business App ID</p>
+                        <p className="text-gray-800">{api.snow_business_application_id}</p>
+                      </div>
+                      {api.snow_application_service_id && (
+                        <div>
+                          <p className="text-sm font-semibold text-gray-600">SNOW Application Service ID</p>
+                          <p className="text-gray-800">{api.snow_application_service_id}</p>
+                        </div>
+                      )}
+                      {api.api_hosting_country && (
+                        <div>
+                          <p className="text-sm font-semibold text-gray-600">Hosting Country</p>
+                          <p className="text-gray-800">{api.api_hosting_country}</p>
+                        </div>
+                      )}
+                      {api.gateway_type && (
+                        <div className="col-span-2">
+                          <p className="text-sm font-semibold text-gray-600">Gateway Type</p>
+                          <p className="text-gray-800">{api.gateway_type}</p>
+                        </div>
+                      )}
+                      {api.api_contract_url && (
+                        <div className="col-span-2">
+                          <p className="text-sm font-semibold text-gray-600">API Contract URL</p>
+                          <a href={api.api_contract_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                            {api.api_contract_url}
+                          </a>
+                        </div>
+                      )}
+                      {api.documentation_url && (
+                        <div className="col-span-2">
+                          <p className="text-sm font-semibold text-gray-600">Documentation URL</p>
+                          <a href={api.documentation_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                            {api.documentation_url}
+                          </a>
+                        </div>
+                      )}
                     </div>
                   </div>
+                );
+              })()}
+              
+              {/* Info message about YAML generation */}
+              {Array.isArray(apiData) && apiData.length > 1 && (
+                <div className="p-3 bg-blue-50 border-l-4 border-blue-500 rounded">
+                  <p className="text-sm text-blue-700">
+                    <strong>Note:</strong> YAML will be generated for all {apiData.length} APIs in this repository.
+                  </p>
                 </div>
-              ))}
+              )}
             </div>
           )}
 
