@@ -26,7 +26,10 @@ if response.status_code == 200:
     print(f"\n   APIs found:")
     for i, api in enumerate(data['data'], 1):
         print(f"     {i}. {api['api_technical_name']} (v{api['version']})")
-        print(f"        Description: {api['description']}")
+        if 'description' in api:
+            print(f"        Description: {api['description']}")
+        print(f"        Platform: {api['platform']}")
+        print(f"        Classification: {api['classification']}")
 else:
     print(f"   ✗ Error: {response.json()}")
     exit(1)

@@ -95,7 +95,7 @@ def find_api_by_repo(repo_url):
         # Return list of all APIs in this repository
         apis = []
         for idx, row in matching_rows.iterrows():
-            apis.append({
+            api_dict = {
                 'repository_url': row['repository_url'],
                 'api_technical_name': row['api_technical_name'],
                 'version': row['version'],
@@ -103,10 +103,30 @@ def find_api_by_repo(repo_url):
                 'platform': row['platform'],
                 'lifecycle_status': row['lifecycle_status'],
                 'classification': row['classification'],
-                'description': row.get('description', ''),
-                'owner_team': row.get('owner_team', ''),
-                'contact_email': row.get('contact_email', '')
-            })
+            }
+            
+            # Add new optional fields if they exist
+            optional_fields = [
+                'snow_application_service_id',
+                'api_contract_url',
+                'documentation_url',
+                'api_hosting_country',
+                'gateway_type',
+                'gateway_proxy_url',
+                'gateway_config_url',
+                'consumer_application_service_ids',
+                'consuming_country_code',
+                'consuming_group_member_code',
+                'description',
+                'owner_team',
+                'contact_email'
+            ]
+            
+            for field in optional_fields:
+                if field in row and pd.notna(row[field]):
+                    api_dict[field] = row[field]
+            
+            apis.append(api_dict)
         return apis
     
     return None
@@ -121,33 +141,81 @@ def generate_apix_yaml(api_data_list):
     yaml_documents = []
     
     for api_data in api_data_list:
+        # Build the YAML structure according to new format
         apix_content = {
-            'apiVersion': 'apix.io/v1',
-            'kind': 'APIMetadata',
-            'metadata': {
-                'name': api_data['api_technical_name'],
-                'version': api_data['version'],
-                'createdAt': datetime.now().isoformat(),
-                'updatedAt': datetime.now().isoformat()
-            },
-            'spec': {
-                'technicalName': api_data['api_technical_name'],
-                'version': api_data['version'],
-                'snow': {
-                    'businessApplicationId': api_data['snow_business_application_id']
-                },
-                'platform': api_data['platform'],
-                'lifecycle': {
-                    'status': api_data['lifecycle_status']
-                },
-                'classification': api_data['classification'],
-                'description': api_data.get('description', ''),
-                'ownership': {
-                    'team': api_data.get('owner_team', ''),
-                    'contact': api_data.get('contact_email', '')
-                }
-            }
+            'apiTechnicalName': api_data['api_technical_name'],
+            'version': api_data['version'],
+            'classification': api_data['classification'],
+            'platform': api_data['platform'],
+            'lifecycleStatus': api_data['lifecycle_status']
         }
+        
+        # Add optional fields
+        if 'api_contract_url' in api_data:
+            apix_content['apiContractUrl'] = api_data['api_contract_url']
+        
+        if 'documentation_url' in api_data:
+            apix_content['documentationUrl'] = api_data['documentation_url']
+        
+        if 'api_hosting_country' in api_data:
+            apix_content['apiHostingCountry'] = api_data['api_hosting_country']
+        
+        # SNOW data section
+        snow_data = {
+            'businessApplicationId': api_data['snow_business_application_id']
+        }
+        if 'snow_application_service_id' in api_data:
+            snow_data['applicationServiceId'] = api_data['snow_application_service_id']
+        apix_content['snowData'] = snow_data
+        
+        # Gateway section
+        if 'gateway_type' in api_data:
+            gateway = {
+                'gatewayType': api_data['gateway_type']
+            }
+            if 'gateway_proxy_url' in api_data:
+                gateway['proxyUrl'] = api_data['gateway_proxy_url']
+            if 'gateway_config_url' in api_data:
+                gateway['configUrl'] = api_data['gateway_config_url']
+            apix_content['gateway'] = gateway
+        
+        # Consumers section
+        if 'consumer_application_service_ids' in api_data:
+            consumer_ids = api_data['consumer_application_service_ids']
+            # Handle comma-separated list
+            if isinstance(consumer_ids, str):
+                consumer_ids = [id.strip() for id in consumer_ids.split(',')]
+            elif not isinstance(consumer_ids, list):
+                consumer_ids = [consumer_ids]
+            
+            apix_content['consumers'] = [
+                {'applicationServiceId': consumer_id} for consumer_id in consumer_ids
+            ]
+        
+        # Consuming country groups section
+        if 'consuming_country_code' in api_data and 'consuming_group_member_code' in api_data:
+            country_codes = api_data['consuming_country_code']
+            group_codes = api_data['consuming_group_member_code']
+            
+            # Handle comma-separated lists
+            if isinstance(country_codes, str):
+                country_codes = [c.strip() for c in country_codes.split(',')]
+            elif not isinstance(country_codes, list):
+                country_codes = [country_codes]
+            
+            if isinstance(group_codes, str):
+                group_codes = [g.strip() for g in group_codes.split(',')]
+            elif not isinstance(group_codes, list):
+                group_codes = [group_codes]
+            
+            apix_content['consumingCountryGroups'] = [
+                {
+                    'countryCode': country_codes[i] if i < len(country_codes) else country_codes[0],
+                    'groupMemberCode': group_codes[i] if i < len(group_codes) else group_codes[0]
+                }
+                for i in range(max(len(country_codes), len(group_codes)))
+            ]
+        
         yaml_documents.append(apix_content)
     
     # Generate YAML with document separator for multiple APIs

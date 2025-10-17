@@ -1,6 +1,6 @@
-repository_url,api_technical_name,version,snow_business_application_id,platform,lifecycle_status,classification,description,owner_team,contact_email
-https://alm-github.systems.uk.hsbc/45453684/Jenkins-mcp,jenkins-mcp-api,v1.0.0,APP001234,gcp,active,internal,Jenkins MCP API for CI/CD automation,DevOps Team,devops-team@hsbc.com
-https://alm-github.systems.uk.hsbc/45453684/Jenkins-mcp,jenkins-pipeline-api,v2.0.0,APP001234,gcp,active,internal,Jenkins Pipeline Management API,DevOps Team,devops-team@hsbc.com
+repository_url,api_technical_name,version,snow_business_application_id,snow_application_service_id,platform,lifecycle_status,classification,api_contract_url,documentation_url,api_hosting_country,gateway_type,gateway_proxy_url,gateway_config_url,consumer_application_service_ids,consuming_country_code,consuming_group_member_code
+https://alm-github.systems.uk.hsbc/45453684/Jenkins-mcp,cto-mmf-hk-hase-pa-customer-accounts,1.0.0,BA0001754,AS0003321,GCP_OTHER,ACTIVE,INTERNAL,https://example.com/api/contract.yaml,https://confluence.example.com/api-docs,GB,KONG,https://proxy.example.com,https://config.example.com,AS0003321,GB,HASE
+https://alm-github.systems.uk.hsbc/45453684/Jenkins-mcp,jenkins-pipeline-api,2.0.0,BA0001754,AS0003322,GCP_OTHER,ACTIVE,INTERNAL,https://example.com/api/pipeline-contract.yaml,https://confluence.example.com/pipeline-docs,GB,KONG,https://proxy.example.com,https://config.example.com,AS0003322,GB,HASE
 https://github.com/Manas2101/Portfolio,payment-service-api,v2.1.0,APP001234,gcp,active,internal,Payment processing API for e-commerce transactions,Payment Team,payment-team@example.com
 https://github.com/Manas2101/Portfolio,checkout-service-api,v1.0.0,APP001234,gcp,active,internal,Checkout and cart management API,Payment Team,payment-team@example.com
 https://github.com/example/user-api,user-management-api,v1.5.2,APP001235,aws-eks,active,confidential,User authentication and profile management,Identity Team,identity@example.com

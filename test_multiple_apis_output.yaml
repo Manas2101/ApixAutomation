@@ -1,43 +1,43 @@
 ---
-apiVersion: apix.io/v1
-kind: APIMetadata
-metadata:
-  name: jenkins-mcp-api
-  version: v1.0.0
-  createdAt: '2025-10-16T22:44:41.863400'
-  updatedAt: '2025-10-16T22:44:41.863406'
-spec:
-  technicalName: jenkins-mcp-api
-  version: v1.0.0
-  snow:
-    businessApplicationId: APP001234
-  platform: gcp
-  lifecycle:
-    status: active
-  classification: internal
-  description: Jenkins MCP API for CI/CD automation
-  ownership:
-    team: DevOps Team
-    contact: devops-team@hsbc.com
+apiTechnicalName: cto-mmf-hk-hase-pa-customer-accounts
+version: 1.0.0
+classification: INTERNAL
+platform: GCP_OTHER
+lifecycleStatus: ACTIVE
+apiContractUrl: https://example.com/api/contract.yaml
+documentationUrl: https://confluence.example.com/api-docs
+apiHostingCountry: GB
+snowData:
+  businessApplicationId: BA0001754
+  applicationServiceId: AS0003321
+gateway:
+  gatewayType: KONG
+  proxyUrl: https://proxy.example.com
+  configUrl: https://config.example.com
+consumers:
+- applicationServiceId: AS0003321
+consumingCountryGroups:
+- countryCode: GB
+  groupMemberCode: HASE
 
 ---
-apiVersion: apix.io/v1
-kind: APIMetadata
-metadata:
-  name: jenkins-pipeline-api
-  version: v2.0.0
-  createdAt: '2025-10-16T22:44:41.863409'
-  updatedAt: '2025-10-16T22:44:41.863410'
-spec:
-  technicalName: jenkins-pipeline-api
-  version: v2.0.0
-  snow:
-    businessApplicationId: APP001234
-  platform: gcp
-  lifecycle:
-    status: active
-  classification: internal
-  description: Jenkins Pipeline Management API
-  ownership:
-    team: DevOps Team
-    contact: devops-team@hsbc.com
+apiTechnicalName: jenkins-pipeline-api
+version: 2.0.0
+classification: INTERNAL
+platform: GCP_OTHER
+lifecycleStatus: ACTIVE
+apiContractUrl: https://example.com/api/pipeline-contract.yaml
+documentationUrl: https://confluence.example.com/pipeline-docs
+apiHostingCountry: GB
+snowData:
+  businessApplicationId: BA0001754
+  applicationServiceId: AS0003322
+gateway:
+  gatewayType: KONG
+  proxyUrl: https://proxy.example.com
+  configUrl: https://config.example.com
+consumers:
+- applicationServiceId: AS0003322
+consumingCountryGroups:
+- countryCode: GB
+  groupMemberCode: HASE
