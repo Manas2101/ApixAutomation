@@ -7,7 +7,7 @@ import requests
 from datetime import datetime
 import base64
 from collections import defaultdict
-
+ 
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "*", "methods": ["GET", "POST", "OPTIONS"], "allow_headers": ["Content-Type"]}})
 
@@ -37,10 +37,15 @@ GITHUB_API_BASE = os.environ.get('GITHUB_API_BASE', 'https://api.github.com')
 print(f"GitHub API Base URL: {GITHUB_API_BASE}")
 
 # Path to the Excel/CSV file - supports both .csv and .xlsx
-DATA_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'sample_api_data.xlsx')
+DATA_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'API_MetaData.xlsx')
 
 def load_api_data():
-    """Load API data from CSV or Excel file"""
+    """
+    Load API data from CSV or Excel file
+    - For CSV: Load normally (old format)
+    - For Excel: Try transposed format first, fallback to normal format
+    Returns: DataFrame or dict of grouped APIs
+    """
     try:
         print(f"Loading data from: {DATA_FILE}")
         
@@ -50,15 +55,28 @@ def load_api_data():
         if file_extension == '.csv':
             df = pd.read_csv(DATA_FILE)
             print(f"Loaded {len(df)} rows from CSV")
+            return df
         elif file_extension in ['.xlsx', '.xls']:
+            # Try transposed format first (multi-sheet)
+            try:
+                excel_file = pd.ExcelFile(DATA_FILE, engine='openpyxl')
+                # If multiple sheets, assume transposed format
+                if len(excel_file.sheet_names) > 1:
+                    print(f"Detected multi-sheet Excel (transposed format)")
+                    grouped_data = parse_transposed_excel(DATA_FILE)
+                    if grouped_data:
+                        return grouped_data  # Returns dict: {repo_url: [apis]}
+            except Exception as e:
+                print(f"Not transposed format, trying normal format: {e}")
+            
+            # Fallback to normal single-sheet format
             df = pd.read_excel(DATA_FILE, engine='openpyxl')
-            print(f"Loaded {len(df)} rows from Excel")
+            print(f"Loaded {len(df)} rows from Excel (normal format)")
+            return df
         else:
             print(f"Unsupported file format: {file_extension}")
             return None
         
-        print(f"Columns: {df.columns.tolist()}")
-        return df
     except Exception as e:
         print(f"Error loading data: {e}")
         return None
@@ -174,12 +192,34 @@ def normalize_repo_url(url):
 
 def find_api_by_repo(repo_url):
     """Find API data by repository URL - returns list of all APIs in the repo"""
-    df = load_api_data()
-    if df is None:
+    data = load_api_data()
+    if data is None:
         return None
     
     normalized_input = normalize_repo_url(repo_url)
     print(f"Searching for normalized URL: {normalized_input}")
+    
+    # Check if data is dict (transposed format) or DataFrame (normal format)
+    if isinstance(data, dict):
+        print("Using transposed Excel format (dict)")
+        # Data is already grouped by repo URL
+        if normalized_input in data:
+            apis = data[normalized_input]
+            print(f"Found {len(apis)} API(s) in transposed data")
+            return apis
+        else:
+            print(f"Repository not found in transposed data")
+            print(f"Available repos: {list(data.keys())}")
+            return None
+    
+    # Handle DataFrame (old CSV/Excel format)
+    df = data
+    
+    # Check if repository_url column exists
+    if 'repository_url' not in df.columns:
+        print(f"ERROR: 'repository_url' column not found in data file")
+        print(f"Available columns: {df.columns.tolist()}")
+        return None
     
     # Normalize all repository URLs in the dataframe
     df['normalized_url'] = df['repository_url'].apply(normalize_repo_url)
