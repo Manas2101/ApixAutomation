@@ -282,102 +282,140 @@ def is_valid_value(value):
     return True
 
 def generate_apix_yaml(api_data_list):
-    """Generate APIX YAML content from API data (supports multiple APIs)"""
+    """
+    Generate APIX YAML content from API data (supports multiple APIs)
+    Includes ALL fields present in the data
+    Validates mandatory fields before generating YAML
+    """
     # If single API (for backward compatibility), convert to list
     if isinstance(api_data_list, dict):
         api_data_list = [api_data_list]
     
+    # Define mandatory fields
+    MANDATORY_FIELDS = ['api_technical_name', 'version']
+    
     # Generate YAML for multiple APIs
     yaml_documents = []
+    skipped_apis = []
     
-    for api_data in api_data_list:
-        # Build the YAML structure with only required fields first
+    for idx, api_data in enumerate(api_data_list):
+        # Validate mandatory fields
+        missing_fields = []
+        for field in MANDATORY_FIELDS:
+            if not is_valid_value(api_data.get(field)):
+                missing_fields.append(field)
+        
+        if missing_fields:
+            api_name = api_data.get('api_technical_name', f'API #{idx+1}')
+            print(f"⚠️  Skipping {api_name}: Missing mandatory fields: {missing_fields}")
+            skipped_apis.append({'api': api_name, 'missing_fields': missing_fields})
+            continue
+        
+        # Build the YAML structure - include ALL fields that are present
         apix_content = {}
         
-        # Required fields - always include
-        apix_content['apiTechnicalName'] = api_data.get('api_technical_name', 'unknown')
-        apix_content['version'] = api_data.get('version', '1.0.0')
+        # === MANDATORY FIELDS ===
+        apix_content['apiTechnicalName'] = api_data['api_technical_name']
+        apix_content['version'] = api_data['version']
         
-        # Optional core fields - only add if valid
+        # === OPTIONAL TOP-LEVEL FIELDS ===
         if is_valid_value(api_data.get('classification')):
             apix_content['classification'] = api_data['classification']
-        
-        if is_valid_value(api_data.get('platform')):
-            apix_content['platform'] = api_data['platform']
         
         if is_valid_value(api_data.get('lifecycle_status')):
             apix_content['lifecycleStatus'] = api_data['lifecycle_status']
         
-        # Add optional URL fields
         if is_valid_value(api_data.get('api_contract_url')):
-            apix_content['apiContractUrl'] = api_data['api_contract_url']
+            apix_content['apiContractURL'] = api_data['api_contract_url']
         
         if is_valid_value(api_data.get('documentation_url')):
-            apix_content['documentationUrl'] = api_data['documentation_url']
+            apix_content['documentationURL'] = api_data['documentation_url']
         
         if is_valid_value(api_data.get('api_hosting_country')):
             apix_content['apiHostingCountry'] = api_data['api_hosting_country']
         
-        # SNOW data section - only add if business app ID exists
+        if is_valid_value(api_data.get('application_name')):
+            apix_content['applicationName'] = api_data['application_name']
+        
+        # === SNOW DATA SECTION ===
         if is_valid_value(api_data.get('snow_business_application_id')):
             snow_data = {
-                'businessApplicationId': api_data['snow_business_application_id']
+                'businessApplicationID': api_data['snow_business_application_id']
             }
             if is_valid_value(api_data.get('snow_application_service_id')):
                 snow_data['applicationServiceId'] = api_data['snow_application_service_id']
             apix_content['snowData'] = snow_data
         
-        # Gateway section - only add if gateway type exists
-        if is_valid_value(api_data.get('gateway_type')):
-            gateway = {
-                'gatewayType': api_data['gateway_type']
+        # === SOURCE CODE SECTION ===
+        if is_valid_value(api_data.get('source_code_path')):
+            apix_content['sourceCode'] = {
+                'pathToSource': api_data['source_code_path']
             }
-            if is_valid_value(api_data.get('gateway_proxy_url')):
-                gateway['proxyUrl'] = api_data['gateway_proxy_url']
-            if is_valid_value(api_data.get('gateway_config_url')):
-                gateway['configUrl'] = api_data['gateway_config_url']
-            apix_content['gateway'] = gateway
         
-        # Consumers section - only add if consumer IDs exist
+        # === PLATFORM SECTION ===
+        platform_fields = {}
+        if is_valid_value(api_data.get('gateway_type')):
+            platform_fields['provider'] = api_data['gateway_type']
+        if is_valid_value(api_data.get('platform_technology')):
+            platform_fields['technology'] = api_data['platform_technology']
+        if is_valid_value(api_data.get('platform_team')):
+            platform_fields['team'] = api_data['platform_team']
+        if is_valid_value(api_data.get('gateway_proxy_url')):
+            platform_fields['proxyURL'] = api_data['gateway_proxy_url']
+        if is_valid_value(api_data.get('gateway_config_url')):
+            platform_fields['configURL'] = api_data['gateway_config_url']
+        
+        if platform_fields:
+            apix_content['Platform'] = platform_fields
+        
+        # === CONSUMERS SECTION ===
         if is_valid_value(api_data.get('consumer_application_service_ids')):
             consumer_ids = api_data['consumer_application_service_ids']
-            # Handle comma-separated list
+            # Handle comma-separated list or array
             if isinstance(consumer_ids, str):
                 consumer_ids = [id.strip() for id in consumer_ids.split(',') if id.strip()]
             elif not isinstance(consumer_ids, list):
                 consumer_ids = [consumer_ids]
             
-            if consumer_ids:  # Only add if list is not empty
+            if consumer_ids:
                 apix_content['consumers'] = [
-                    {'applicationServiceId': consumer_id} for consumer_id in consumer_ids
+                    {'applicationServiceId': str(consumer_id)} for consumer_id in consumer_ids
                 ]
         
-        # Consuming country groups section - only add if both country and group codes exist
-        if is_valid_value(api_data.get('consuming_country_code')) and is_valid_value(api_data.get('consuming_group_member_code')):
-            country_codes = api_data['consuming_country_code']
-            group_codes = api_data['consuming_group_member_code']
+        # === CONSUMING COUNTRY GROUPS SECTION ===
+        if is_valid_value(api_data.get('consuming_country_code')) or is_valid_value(api_data.get('consuming_group_member_code')):
+            country_codes = api_data.get('consuming_country_code', '')
+            group_codes = api_data.get('consuming_group_member_code', '')
             
             # Handle comma-separated lists
             if isinstance(country_codes, str):
                 country_codes = [c.strip() for c in country_codes.split(',') if c.strip()]
             elif not isinstance(country_codes, list):
-                country_codes = [country_codes]
+                country_codes = [country_codes] if country_codes else []
             
             if isinstance(group_codes, str):
                 group_codes = [g.strip() for g in group_codes.split(',') if g.strip()]
             elif not isinstance(group_codes, list):
-                group_codes = [group_codes]
+                group_codes = [group_codes] if group_codes else []
             
-            if country_codes and group_codes:  # Only add if both lists are not empty
+            if country_codes or group_codes:
+                max_len = max(len(country_codes), len(group_codes))
                 apix_content['consumingCountryGroups'] = [
                     {
-                        'countryCode': country_codes[i] if i < len(country_codes) else country_codes[0],
-                        'groupMemberCode': group_codes[i] if i < len(group_codes) else group_codes[0]
+                        'countryCode': country_codes[i] if i < len(country_codes) else (country_codes[0] if country_codes else ''),
+                        'groupMemberCode': group_codes[i] if i < len(group_codes) else (group_codes[0] if group_codes else '')
                     }
-                    for i in range(max(len(country_codes), len(group_codes)))
+                    for i in range(max_len)
                 ]
         
         yaml_documents.append(apix_content)
+    
+    # If all APIs were skipped, raise error
+    if not yaml_documents:
+        error_msg = "No valid APIs to generate YAML. All APIs are missing mandatory fields.\n"
+        for skipped in skipped_apis:
+            error_msg += f"  - {skipped['api']}: Missing {skipped['missing_fields']}\n"
+        raise ValueError(error_msg)
     
     # Generate YAML with document separator for multiple APIs
     if len(yaml_documents) == 1:
