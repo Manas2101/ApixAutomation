@@ -6,6 +6,7 @@ import os
 import requests
 from datetime import datetime
 import base64
+from collections import defaultdict
 
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "*", "methods": ["GET", "POST", "OPTIONS"], "allow_headers": ["Content-Type"]}})
@@ -62,9 +63,108 @@ def load_api_data():
         print(f"Error loading data: {e}")
         return None
 
+def parse_transposed_excel(file_path):
+    """
+    Parse transposed Excel format where:
+    - Each sheet represents an EMI ID (for reference)
+    - Column A = Field names (vertical)
+    - Columns B, C, D... = Different APIs (horizontal)
+    - Returns dict grouped by repository URL
+    """
+    try:
+        excel_file = pd.ExcelFile(file_path, engine='openpyxl')
+        all_apis = []
+        
+        print(f"\n=== Parsing Transposed Excel ===")
+        print(f"Found {len(excel_file.sheet_names)} sheets: {excel_file.sheet_names}")
+        
+        # Field name mapping from Excel to our internal structure
+        field_mapping = {
+            'API Repo': 'repository_url',
+            'apiId': 'repository_url',  # Alternative name
+            'API Object/API Technical Name': 'api_technical_name',
+            'version': 'version',
+            'apiContractURL': 'api_contract_url',
+            'businessApplicationID': 'snow_business_application_id',
+            'applicationServiceId': 'snow_application_service_id',
+            'classification': 'classification',
+            'sourceCode.pathToSource': 'source_code_path',
+            'Platform.provider': 'gateway_type',
+            'Platform.technology': 'platform_technology',
+            'Platform.team': 'platform_team',
+            'lifecycleStatus': 'lifecycle_status',
+            'consumers': 'consumers',
+            'consumers[].applicationServiceId': 'consumer_application_service_ids',
+            'gatewayType': 'gateway_type',
+            'proxyURL': 'gateway_proxy_url',
+            'configURL': 'gateway_config_url',
+            'apiHostingCountry': 'api_hosting_country',
+            'documentationURL': 'documentation_url',
+            'consumingCountryGroups': 'consuming_country_groups',
+            'countryCode': 'consuming_country_code',
+            'groupMemberCode': 'consuming_group_member_code',
+            'Application Name': 'application_name'
+        }
+        
+        for sheet_name in excel_file.sheet_names:
+            print(f"\n--- Processing sheet: {sheet_name} ---")
+            df = pd.read_excel(file_path, sheet_name=sheet_name, engine='openpyxl', header=None)
+            
+            if df.empty or len(df.columns) < 2:
+                print(f"Skipping empty sheet: {sheet_name}")
+                continue
+            
+            # Column A (index 0) contains field names
+            # Columns B onwards (index 1+) contain API data
+            field_names = df.iloc[:, 0].tolist()
+            
+            # Process each API column (starting from column B = index 1)
+            num_apis = len(df.columns) - 1
+            print(f"Found {num_apis} API columns")
+            
+            for col_idx in range(1, len(df.columns)):
+                api_data = {}
+                api_values = df.iloc[:, col_idx].tolist()
+                
+                # Map field names to values
+                for field_name, value in zip(field_names, api_values):
+                    if pd.notna(field_name) and pd.notna(value):
+                        field_name_clean = str(field_name).strip()
+                        
+                        # Map to internal field name
+                        internal_field = field_mapping.get(field_name_clean, field_name_clean.lower().replace(' ', '_'))
+                        api_data[internal_field] = value
+                
+                # Only add if we have a repository URL
+                if 'repository_url' in api_data and api_data['repository_url']:
+                    all_apis.append(api_data)
+                    print(f"  API {col_idx}: {api_data.get('api_technical_name', 'N/A')} -> {api_data.get('repository_url', 'N/A')}")
+        
+        print(f"\n=== Total APIs parsed: {len(all_apis)} ===")
+        
+        # Group APIs by repository URL
+        grouped_by_repo = defaultdict(list)
+        for api in all_apis:
+            repo_url = normalize_repo_url(api['repository_url'])
+            grouped_by_repo[repo_url].append(api)
+        
+        print(f"\n=== Grouped into {len(grouped_by_repo)} unique repositories ===")
+        for repo_url, apis in grouped_by_repo.items():
+            print(f"  {repo_url}: {len(apis)} API(s)")
+        
+        return dict(grouped_by_repo)
+        
+    except Exception as e:
+        print(f"Error parsing transposed Excel: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
+
 def normalize_repo_url(url):
     """Normalize GitHub repository URL for comparison"""
-    url = url.strip().lower()
+    if not url:
+        return ""
+    url = str(url).strip().lower()
     # Remove trailing slashes
     url = url.rstrip('/')
     # Remove .git suffix if present
@@ -423,6 +523,90 @@ def create_pr():
             return jsonify({'error': f'Failed to create pull request: {error_msg}', 'details': pr_response.json()}), 400
             
     except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/upload-excel', methods=['POST'])
+def upload_excel():
+    """
+    Upload and parse transposed Excel file
+    Returns all APIs grouped by repository URL
+    """
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file provided'}), 400
+        
+        file = request.files['file']
+        
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+        
+        if not file.filename.endswith(('.xlsx', '.xls')):
+            return jsonify({'error': 'Only Excel files (.xlsx, .xls) are supported'}), 400
+        
+        # Save temporarily
+        temp_path = os.path.join('/tmp', f'upload_{datetime.now().timestamp()}.xlsx')
+        file.save(temp_path)
+        
+        print(f"Uploaded file saved to: {temp_path}")
+        
+        # Parse the transposed Excel
+        grouped_apis = parse_transposed_excel(temp_path)
+        
+        # Clean up temp file
+        os.remove(temp_path)
+        
+        if not grouped_apis:
+            return jsonify({'error': 'No valid API data found in Excel file'}), 400
+        
+        # Convert to response format
+        result = {
+            'total_repos': len(grouped_apis),
+            'total_apis': sum(len(apis) for apis in grouped_apis.values()),
+            'repositories': {}
+        }
+        
+        for repo_url, apis in grouped_apis.items():
+            result['repositories'][repo_url] = {
+                'count': len(apis),
+                'apis': apis
+            }
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        print(f"Error in upload_excel: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/generate-yaml-from-upload', methods=['POST'])
+def generate_yaml_from_upload():
+    """
+    Generate YAML for a specific repository from uploaded data
+    Request body: { repository_url: string, apis: [...] }
+    """
+    try:
+        data = request.json
+        repo_url = data.get('repository_url')
+        apis = data.get('apis', [])
+        
+        if not repo_url or not apis:
+            return jsonify({'error': 'repository_url and apis are required'}), 400
+        
+        # Generate YAML for these APIs
+        yaml_content = generate_apix_yaml(apis)
+        
+        return jsonify({
+            'yaml': yaml_content,
+            'filename': 'apix.yaml',
+            'repository_url': repo_url,
+            'api_count': len(apis)
+        })
+        
+    except Exception as e:
+        print(f"Error generating YAML: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/health', methods=['GET'])
