@@ -7,7 +7,6 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
 function App() {
   const [repoUrl, setRepoUrl] = useState('');
-  const [githubToken, setGithubToken] = useState('');
   const [apiData, setApiData] = useState(null);
   const [selectedApiIndex, setSelectedApiIndex] = useState(0);
   const [jsonContent, setJsonContent] = useState('');
@@ -115,11 +114,6 @@ function App() {
   };
 
   const handleCreatePR = async () => {
-    if (!githubToken.trim()) {
-      setError('Please enter your GitHub Personal Access Token');
-      return;
-    }
-
     // Check if validation has been done
     if (!validationResult || !validationResult.valid) {
       setError('Please validate the JSON successfully first');
@@ -133,11 +127,10 @@ function App() {
     try {
       setSuccess('Creating pull request...');
       
-      // Create PR
+      // Create PR (no GitHub token needed - server uses environment token)
       const response = await axios.post(`${API_BASE_URL}/api/create-pr`, {
         repository_url: repoUrl,
-        json_content: jsonContent,
-        github_token: githubToken
+        json_content: jsonContent
       });
 
       if (response.data.success) {
@@ -500,33 +493,6 @@ function App() {
                 </div>
               </div>
 
-              {/* GitHub Token - Only for Validate & Create PR flow */}
-              {flowType === 'validate-pr' && (
-                <div className="mb-4">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    GitHub Personal Access Token (Required for Create PR)
-                  </label>
-                  <input
-                    type="password"
-                    value={githubToken}
-                    onChange={(e) => setGithubToken(e.target.value)}
-                    placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 transition-colors"
-                  />
-                  <p className="text-xs text-gray-500 mt-2">
-                    <strong>Note:</strong> Token not required for validation. Only needed for creating PR. Create one at{' '}
-                    <a
-                      href="https://github.com/settings/tokens"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:underline"
-                    >
-                      GitHub Settings
-                    </a>
-                    {' '}with 'repo' scope
-                  </p>
-                </div>
-              )}
 
               {/* PR Status Display for Publish Flow */}
               {flowType === 'validate-publish' && (
@@ -600,7 +566,7 @@ function App() {
                   // Create PR Button - Only enabled after validation passes
                   <button
                     onClick={handleCreatePR}
-                    disabled={!validationResult || !validationResult.valid || loading || !githubToken}
+                    disabled={!validationResult || !validationResult.valid || loading}
                     className="w-full px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2 font-semibold"
                   >
                     {loading ? (
