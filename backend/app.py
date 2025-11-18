@@ -8218,7 +8218,7 @@ def check_pr_status():
                 'pr_exists': False,
                 'is_merged': False,
                 'branch_exists': False,
-                'message': 'No active branch found. Please create a new PR.',
+                'message': 'No branch found. Branch will be created when you make a PR.',
                 'can_publish': False
             })
 

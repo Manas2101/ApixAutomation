@@ -1860,19 +1860,19 @@ function App() {
 
                       {prStatus.hasOwnProperty('branch_exists') && (
 
-                        <div className="mt-3 flex items-center gap-2 text-sm">
+                        <div className={`mt-3 flex items-center gap-2 text-sm ${!prStatus.branch_exists ? 'bg-blue-50 p-2 rounded-lg border border-blue-200' : ''}`}>
 
-                          <GitBranch size={16} className={prStatus.branch_exists ? 'text-green-600' : 'text-gray-400'} />
+                          <GitBranch size={16} className={prStatus.branch_exists ? 'text-green-600' : 'text-blue-600'} />
 
-                          <span className={prStatus.branch_exists ? 'text-green-700' : 'text-gray-600'}>
+                          <span className={prStatus.branch_exists ? 'text-green-700' : 'text-blue-700 font-medium'}>
 
-                            Branch: {prStatus.branch_exists ? 'Exists' : 'Not Found'}
+                            {prStatus.branch_exists ? 'Branch: Exists' : 'Branch: Not Found'}
 
                           </span>
 
                           {!prStatus.branch_exists && (
 
-                            <span className="text-gray-500 text-xs">(Will be created when PR is made)</span>
+                            <span className="text-blue-600 text-xs font-medium">(Will be created automatically)</span>
 
                           )}
 
