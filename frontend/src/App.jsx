@@ -688,6 +688,8 @@ function App() {
 
     setPrStatus(null);
 
+    setPrUrl(''); // Clear any previous PR creation notifications
+
  
 
     try {
@@ -1742,9 +1744,9 @@ function App() {
 
  
 
-                {/* Step 3: Publish (only if PR is merged) */}
+                {/* Step 3: Publish (only if current PR is merged and no new PR creation needed) */}
 
-                {prStatus?.can_publish && (
+                {prStatus?.can_publish && !prStatus?.is_merged && (
 
                   <div className="bg-white border-2 border-green-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
 
