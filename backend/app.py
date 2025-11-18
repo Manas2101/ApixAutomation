@@ -2,7 +2,15 @@ from flask import Flask, request, jsonify
 
  
 
+ 
+
+ 
+
 from flask_cors import CORS
+
+ 
+
+ 
 
  
 
@@ -10,7 +18,15 @@ import pandas as pd
 
  
 
+ 
+
+ 
+
 import yaml
+
+ 
+
+ 
 
  
 
@@ -18,7 +34,15 @@ import json
 
  
 
+ 
+
+ 
+
 import os
+
+ 
+
+ 
 
  
 
@@ -26,7 +50,15 @@ import requests
 
  
 
+ 
+
+ 
+
 from datetime import datetime
+
+ 
+
+ 
 
  
 
@@ -34,7 +66,15 @@ import base64
 
  
 
+ 
+
+ 
+
 from collections import defaultdict
+
+ 
+
+ 
 
  
 
@@ -46,7 +86,19 @@ import re
 
  
 
+ 
+
+ 
+
+ 
+
+ 
+
 app = Flask(__name__)
+
+ 
+
+ 
 
  
 
@@ -58,7 +110,19 @@ CORS(app, resources={r"/api/*": {"origins": "*", "methods": ["GET", "POST", "OPT
 
  
 
+ 
+
+ 
+
+ 
+
+ 
+
 # Proxy configuration - reads from environment variables
+
+ 
+
+ 
 
  
 
@@ -66,7 +130,15 @@ PROXIES = {
 
  
 
+ 
+
+ 
+
     'http': os.environ.get('HTTP_PROXY', os.environ.get('http_proxy')),
+
+ 
+
+ 
 
  
 
@@ -74,7 +146,15 @@ PROXIES = {
 
  
 
+ 
+
+ 
+
 }
+
+ 
+
+ 
 
  
 
@@ -82,7 +162,15 @@ PROXIES = {
 
  
 
+ 
+
+ 
+
 PROXIES = {k: v for k, v in PROXIES.items() if v is not None}
+
+ 
+
+ 
 
  
 
@@ -94,11 +182,27 @@ print(f"Using proxies: {PROXIES if PROXIES else 'None (direct connection)'}")
 
  
 
+ 
+
+ 
+
+ 
+
+ 
+
 # SSL Certificate configuration for GitHub Enterprise
 
  
 
+ 
+
+ 
+
 SSL_VERIFY = os.environ.get('SSL_VERIFY', 'true').lower() != 'false'
+
+ 
+
+ 
 
  
 
@@ -110,7 +214,19 @@ SSL_CERT_PATH = os.environ.get('SSL_CERT_PATH', None)
 
  
 
+ 
+
+ 
+
+ 
+
+ 
+
 if not SSL_VERIFY:
+
+ 
+
+ 
 
  
 
@@ -118,7 +234,15 @@ if not SSL_VERIFY:
 
  
 
+ 
+
+ 
+
     import urllib3
+
+ 
+
+ 
 
  
 
@@ -126,11 +250,23 @@ if not SSL_VERIFY:
 
  
 
+ 
+
+ 
+
 elif SSL_CERT_PATH:
 
  
 
+ 
+
+ 
+
     print(f"Using custom SSL certificate: {SSL_CERT_PATH}")
+
+ 
+
+ 
 
  
 
@@ -142,11 +278,27 @@ elif SSL_CERT_PATH:
 
  
 
+ 
+
+ 
+
+ 
+
+ 
+
 # GitHub Enterprise configuration
 
  
 
+ 
+
+ 
+
 GITHUB_API_BASE = os.environ.get('GITHUB_API_BASE', 'https://alm-github.systems.uk.hsbc')
+
+ 
+
+ 
 
  
 
@@ -158,7 +310,19 @@ print(f"GitHub API Base URL: {GITHUB_API_BASE}")
 
  
 
+ 
+
+ 
+
+ 
+
+ 
+
 # Path to the Excel/CSV file - supports both .csv and .xlsx
+
+ 
+
+ 
 
  
 
@@ -166,7 +330,15 @@ print(f"GitHub API Base URL: {GITHUB_API_BASE}")
 
  
 
+ 
+
+ 
+
 DATA_FILE = os.environ.get('API_META_DATA_FILE', '../API_MetaData.xlsx')
+
+ 
+
+ 
 
  
 
@@ -178,7 +350,19 @@ print(f"API MetaData file path: {DATA_FILE}")
 
  
 
+ 
+
+ 
+
+ 
+
+ 
+
 # Print the APIX_VALIDATION_TOKEN for debugging (remove in production!)
+
+ 
+
+ 
 
  
 
@@ -190,11 +374,27 @@ print(f"APIX_VALIDATION_TOKEN: {os.environ.get('APIX_VALIDATION_TOKEN')}")
 
  
 
+ 
+
+ 
+
+ 
+
+ 
+
 def load_api_data():
 
  
 
+ 
+
+ 
+
     """
+
+ 
+
+ 
 
  
 
@@ -202,7 +402,15 @@ def load_api_data():
 
  
 
+ 
+
+ 
+
     - For CSV: Load normally (old format)
+
+ 
+
+ 
 
  
 
@@ -210,7 +418,15 @@ def load_api_data():
 
  
 
+ 
+
+ 
+
     Returns: DataFrame or dict of grouped APIs
+
+ 
+
+ 
 
  
 
@@ -218,7 +434,15 @@ def load_api_data():
 
  
 
+ 
+
+ 
+
     try:
+
+ 
+
+ 
 
  
 
@@ -226,7 +450,15 @@ def load_api_data():
 
  
 
+ 
+
+ 
+
        
+
+ 
+
+ 
 
  
 
@@ -234,11 +466,23 @@ def load_api_data():
 
  
 
+ 
+
+ 
+
         file_extension = os.path.splitext(DATA_FILE)[1].lower()
 
  
 
+ 
+
+ 
+
        
+
+ 
+
+ 
 
  
 
@@ -246,7 +490,15 @@ def load_api_data():
 
  
 
+ 
+
+ 
+
             df = pd.read_csv(DATA_FILE)
+
+ 
+
+ 
 
  
 
@@ -254,7 +506,15 @@ def load_api_data():
 
  
 
+ 
+
+ 
+
             return df
+
+ 
+
+ 
 
  
 
@@ -262,7 +522,15 @@ def load_api_data():
 
  
 
+ 
+
+ 
+
             # Try transposed format first (multi-sheet)
+
+ 
+
+ 
 
  
 
@@ -270,7 +538,15 @@ def load_api_data():
 
  
 
+ 
+
+ 
+
                 excel_file = pd.ExcelFile(DATA_FILE, engine='openpyxl')
+
+ 
+
+ 
 
  
 
@@ -278,7 +554,15 @@ def load_api_data():
 
  
 
+ 
+
+ 
+
                 if len(excel_file.sheet_names) > 1:
+
+ 
+
+ 
 
  
 
@@ -286,7 +570,15 @@ def load_api_data():
 
  
 
+ 
+
+ 
+
                     grouped_data = parse_transposed_excel(DATA_FILE)
+
+ 
+
+ 
 
  
 
@@ -294,7 +586,15 @@ def load_api_data():
 
  
 
+ 
+
+ 
+
                         return grouped_data  # Returns dict: {repo_url: [apis]}
+
+ 
+
+ 
 
  
 
@@ -302,7 +602,15 @@ def load_api_data():
 
  
 
+ 
+
+ 
+
                 print(f"Not transposed format, trying normal format: {e}")
+
+ 
+
+ 
 
  
 
@@ -310,7 +618,15 @@ def load_api_data():
 
  
 
+ 
+
+ 
+
             # Fallback to normal single-sheet format
+
+ 
+
+ 
 
  
 
@@ -318,7 +634,15 @@ def load_api_data():
 
  
 
+ 
+
+ 
+
             print(f"Loaded {len(df)} rows from Excel (normal format)")
+
+ 
+
+ 
 
  
 
@@ -326,7 +650,15 @@ def load_api_data():
 
  
 
+ 
+
+ 
+
         else:
+
+ 
+
+ 
 
  
 
@@ -334,7 +666,15 @@ def load_api_data():
 
  
 
+ 
+
+ 
+
             return None
+
+ 
+
+ 
 
  
 
@@ -342,7 +682,15 @@ def load_api_data():
 
  
 
+ 
+
+ 
+
     except Exception as e:
+
+ 
+
+ 
 
  
 
@@ -350,7 +698,19 @@ def load_api_data():
 
  
 
+ 
+
+ 
+
         return None
+
+ 
+
+ 
+
+ 
+
+ 
 
  
 
@@ -362,7 +722,15 @@ def parse_transposed_excel(file_path):
 
  
 
+ 
+
+ 
+
     """
+
+ 
+
+ 
 
  
 
@@ -370,7 +738,15 @@ def parse_transposed_excel(file_path):
 
  
 
+ 
+
+ 
+
     - Each sheet represents an EMI ID (for reference)
+
+ 
+
+ 
 
  
 
@@ -378,7 +754,15 @@ def parse_transposed_excel(file_path):
 
  
 
+ 
+
+ 
+
     - Columns B, C, D... = Different APIs (horizontal)
+
+ 
+
+ 
 
  
 
@@ -386,7 +770,15 @@ def parse_transposed_excel(file_path):
 
  
 
+ 
+
+ 
+
     """
+
+ 
+
+ 
 
  
 
@@ -394,7 +786,15 @@ def parse_transposed_excel(file_path):
 
  
 
+ 
+
+ 
+
         excel_file = pd.ExcelFile(file_path, engine='openpyxl')
+
+ 
+
+ 
 
  
 
@@ -402,7 +802,15 @@ def parse_transposed_excel(file_path):
 
  
 
+ 
+
+ 
+
        
+
+ 
+
+ 
 
  
 
@@ -410,11 +818,23 @@ def parse_transposed_excel(file_path):
 
  
 
+ 
+
+ 
+
         print(f"Found {len(excel_file.sheet_names)} sheets: {excel_file.sheet_names}")
 
  
 
+ 
+
+ 
+
        
+
+ 
+
+ 
 
  
 
@@ -422,7 +842,15 @@ def parse_transposed_excel(file_path):
 
  
 
+ 
+
+ 
+
         field_mapping = {
+
+ 
+
+ 
 
  
 
@@ -430,7 +858,15 @@ def parse_transposed_excel(file_path):
 
  
 
+ 
+
+ 
+
             'apiId': 'repository_url',  # Alternative name
+
+ 
+
+ 
 
  
 
@@ -438,7 +874,15 @@ def parse_transposed_excel(file_path):
 
  
 
+ 
+
+ 
+
             'version': 'version',
+
+ 
+
+ 
 
  
 
@@ -446,7 +890,15 @@ def parse_transposed_excel(file_path):
 
  
 
+ 
+
+ 
+
             'businessApplicationID': 'snow_business_application_id',
+
+ 
+
+ 
 
  
 
@@ -454,19 +906,39 @@ def parse_transposed_excel(file_path):
 
  
 
+ 
+
+ 
+
             'classification': 'classification',
+
+ 
+
+ 
 
  
 
             'sourceCode.pathToSource': 'source_code_path',
 
+ 
+
             # Source code fields - exact Excel column names
+
+ 
 
             'SourceCodeURL': 'source_code_url',
 
+ 
+
             'SourceCode Reference': 'source_code_reference',
 
+ 
+
             'Platform.provider': 'platform_provider',
+
+ 
+
+ 
 
  
 
@@ -474,7 +946,15 @@ def parse_transposed_excel(file_path):
 
  
 
+ 
+
+ 
+
             'Platform.team': 'platform_team',
+
+ 
+
+ 
 
  
 
@@ -482,7 +962,15 @@ def parse_transposed_excel(file_path):
 
  
 
+ 
+
+ 
+
             'consumers': 'consumers',
+
+ 
+
+ 
 
  
 
@@ -490,7 +978,15 @@ def parse_transposed_excel(file_path):
 
  
 
+ 
+
+ 
+
             'gatewayType': 'gateway_type',
+
+ 
+
+ 
 
  
 
@@ -498,7 +994,15 @@ def parse_transposed_excel(file_path):
 
  
 
+ 
+
+ 
+
             'configURL': 'gateway_config_url',
+
+ 
+
+ 
 
  
 
@@ -506,7 +1010,15 @@ def parse_transposed_excel(file_path):
 
  
 
+ 
+
+ 
+
             'documentationURL': 'documentation_url',
+
+ 
+
+ 
 
  
 
@@ -514,7 +1026,15 @@ def parse_transposed_excel(file_path):
 
  
 
+ 
+
+ 
+
             'countryCode': 'consuming_country_code',
+
+ 
+
+ 
 
  
 
@@ -522,7 +1042,15 @@ def parse_transposed_excel(file_path):
 
  
 
+ 
+
+ 
+
             'Application Name': 'application_name'
+
+ 
+
+ 
 
  
 
@@ -530,7 +1058,15 @@ def parse_transposed_excel(file_path):
 
  
 
+ 
+
+ 
+
        
+
+ 
+
+ 
 
  
 
@@ -538,7 +1074,15 @@ def parse_transposed_excel(file_path):
 
  
 
+ 
+
+ 
+
             print(f"\n--- Processing sheet: {sheet_name} ---")
+
+ 
+
+ 
 
  
 
@@ -546,7 +1090,15 @@ def parse_transposed_excel(file_path):
 
  
 
+ 
+
+ 
+
            
+
+ 
+
+ 
 
  
 
@@ -554,21 +1106,43 @@ def parse_transposed_excel(file_path):
 
  
 
+ 
+
+ 
+
                 print(f"Skipping empty sheet: {sheet_name}")
+
+ 
+
+ 
 
  
 
                 continue
 
+ 
+
            
 
+ 
+
             # Store EMI ID from sheet name for each API in this sheet
+
+ 
 
             emi_id = sheet_name.strip()
 
  
 
+ 
+
+ 
+
            
+
+ 
+
+ 
 
  
 
@@ -576,7 +1150,15 @@ def parse_transposed_excel(file_path):
 
  
 
+ 
+
+ 
+
             # Columns B onwards (index 1+) contain API data
+
+ 
+
+ 
 
  
 
@@ -584,7 +1166,15 @@ def parse_transposed_excel(file_path):
 
  
 
+ 
+
+ 
+
            
+
+ 
+
+ 
 
  
 
@@ -592,7 +1182,15 @@ def parse_transposed_excel(file_path):
 
  
 
+ 
+
+ 
+
             num_apis = len(df.columns) - 1
+
+ 
+
+ 
 
  
 
@@ -600,7 +1198,15 @@ def parse_transposed_excel(file_path):
 
  
 
+ 
+
+ 
+
            
+
+ 
+
+ 
 
  
 
@@ -608,7 +1214,15 @@ def parse_transposed_excel(file_path):
 
  
 
+ 
+
+ 
+
                 api_data = {}
+
+ 
+
+ 
 
  
 
@@ -616,7 +1230,15 @@ def parse_transposed_excel(file_path):
 
  
 
+ 
+
+ 
+
                
+
+ 
+
+ 
 
  
 
@@ -624,7 +1246,15 @@ def parse_transposed_excel(file_path):
 
  
 
+ 
+
+ 
+
                 for field_name, value in zip(field_names, api_values):
+
+ 
+
+ 
 
  
 
@@ -632,7 +1262,15 @@ def parse_transposed_excel(file_path):
 
  
 
+ 
+
+ 
+
                         field_name_clean = str(field_name).strip()
+
+ 
+
+ 
 
  
 
@@ -640,7 +1278,15 @@ def parse_transposed_excel(file_path):
 
  
 
+ 
+
+ 
+
                         # Map to internal field name
+
+ 
+
+ 
 
  
 
@@ -648,7 +1294,15 @@ def parse_transposed_excel(file_path):
 
  
 
+ 
+
+ 
+
                         api_data[internal_field] = value
+
+ 
+
+ 
 
  
 
@@ -656,17 +1310,35 @@ def parse_transposed_excel(file_path):
 
  
 
+ 
+
+ 
+
                 # Only add if we have a repository URL
+
+ 
+
+ 
 
  
 
                 if 'repository_url' in api_data and api_data['repository_url']:
 
+ 
+
                     # Add EMI ID to each API data
+
+ 
 
                     api_data['emi_id'] = emi_id
 
+ 
+
                     all_apis.append(api_data)
+
+ 
+
+ 
 
  
 
@@ -674,7 +1346,15 @@ def parse_transposed_excel(file_path):
 
  
 
+ 
+
+ 
+
        
+
+ 
+
+ 
 
  
 
@@ -682,7 +1362,15 @@ def parse_transposed_excel(file_path):
 
  
 
+ 
+
+ 
+
        
+
+ 
+
+ 
 
  
 
@@ -690,7 +1378,15 @@ def parse_transposed_excel(file_path):
 
  
 
+ 
+
+ 
+
         grouped_by_repo = defaultdict(list)
+
+ 
+
+ 
 
  
 
@@ -698,7 +1394,15 @@ def parse_transposed_excel(file_path):
 
  
 
+ 
+
+ 
+
             repo_url = normalize_repo_url(api['repository_url'])
+
+ 
+
+ 
 
  
 
@@ -706,7 +1410,15 @@ def parse_transposed_excel(file_path):
 
  
 
+ 
+
+ 
+
        
+
+ 
+
+ 
 
  
 
@@ -714,7 +1426,15 @@ def parse_transposed_excel(file_path):
 
  
 
+ 
+
+ 
+
         for repo_url, apis in grouped_by_repo.items():
+
+ 
+
+ 
 
  
 
@@ -722,7 +1442,15 @@ def parse_transposed_excel(file_path):
 
  
 
+ 
+
+ 
+
        
+
+ 
+
+ 
 
  
 
@@ -730,7 +1458,15 @@ def parse_transposed_excel(file_path):
 
  
 
+ 
+
+ 
+
        
+
+ 
+
+ 
 
  
 
@@ -738,7 +1474,15 @@ def parse_transposed_excel(file_path):
 
  
 
+ 
+
+ 
+
         print(f"Error parsing transposed Excel: {e}")
+
+ 
+
+ 
 
  
 
@@ -746,11 +1490,27 @@ def parse_transposed_excel(file_path):
 
  
 
+ 
+
+ 
+
         traceback.print_exc()
 
  
 
+ 
+
+ 
+
         return None
+
+ 
+
+ 
+
+ 
+
+ 
 
  
 
@@ -762,7 +1522,15 @@ def normalize_repo_url(url):
 
  
 
+ 
+
+ 
+
     """Normalize GitHub repository URL for comparison"""
+
+ 
+
+ 
 
  
 
@@ -770,7 +1538,15 @@ def normalize_repo_url(url):
 
  
 
+ 
+
+ 
+
         return ""
+
+ 
+
+ 
 
  
 
@@ -778,7 +1554,15 @@ def normalize_repo_url(url):
 
  
 
+ 
+
+ 
+
     # Remove trailing slashes
+
+ 
+
+ 
 
  
 
@@ -786,7 +1570,15 @@ def normalize_repo_url(url):
 
  
 
+ 
+
+ 
+
     # Remove .git suffix if present
+
+ 
+
+ 
 
  
 
@@ -794,7 +1586,15 @@ def normalize_repo_url(url):
 
  
 
+ 
+
+ 
+
         url = url[:-4]
+
+ 
+
+ 
 
  
 
@@ -806,7 +1606,19 @@ def normalize_repo_url(url):
 
  
 
+ 
+
+ 
+
+ 
+
+ 
+
 def find_api_by_repo(repo_url):
+
+ 
+
+ 
 
  
 
@@ -814,7 +1626,15 @@ def find_api_by_repo(repo_url):
 
  
 
+ 
+
+ 
+
     data = load_api_data()
+
+ 
+
+ 
 
  
 
@@ -822,11 +1642,23 @@ def find_api_by_repo(repo_url):
 
  
 
+ 
+
+ 
+
         return None
 
  
 
+ 
+
+ 
+
    
+
+ 
+
+ 
 
  
 
@@ -834,11 +1666,23 @@ def find_api_by_repo(repo_url):
 
  
 
+ 
+
+ 
+
     print(f"Searching for normalized URL: {normalized_input}")
 
  
 
+ 
+
+ 
+
    
+
+ 
+
+ 
 
  
 
@@ -846,7 +1690,15 @@ def find_api_by_repo(repo_url):
 
  
 
+ 
+
+ 
+
     if isinstance(data, dict):
+
+ 
+
+ 
 
  
 
@@ -854,7 +1706,15 @@ def find_api_by_repo(repo_url):
 
  
 
+ 
+
+ 
+
         # Data is already grouped by repo URL
+
+ 
+
+ 
 
  
 
@@ -862,7 +1722,15 @@ def find_api_by_repo(repo_url):
 
  
 
+ 
+
+ 
+
             apis = data[normalized_input]
+
+ 
+
+ 
 
  
 
@@ -870,7 +1738,15 @@ def find_api_by_repo(repo_url):
 
  
 
+ 
+
+ 
+
             return apis
+
+ 
+
+ 
 
  
 
@@ -878,7 +1754,15 @@ def find_api_by_repo(repo_url):
 
  
 
+ 
+
+ 
+
             print(f"Repository not found in transposed data")
+
+ 
+
+ 
 
  
 
@@ -886,11 +1770,23 @@ def find_api_by_repo(repo_url):
 
  
 
+ 
+
+ 
+
             return None
 
  
 
+ 
+
+ 
+
    
+
+ 
+
+ 
 
  
 
@@ -898,11 +1794,23 @@ def find_api_by_repo(repo_url):
 
  
 
+ 
+
+ 
+
     df = data
 
  
 
+ 
+
+ 
+
    
+
+ 
+
+ 
 
  
 
@@ -910,7 +1818,15 @@ def find_api_by_repo(repo_url):
 
  
 
+ 
+
+ 
+
     if 'repository_url' not in df.columns:
+
+ 
+
+ 
 
  
 
@@ -918,7 +1834,15 @@ def find_api_by_repo(repo_url):
 
  
 
+ 
+
+ 
+
         print(f"Available columns: {df.columns.tolist()}")
+
+ 
+
+ 
 
  
 
@@ -926,7 +1850,15 @@ def find_api_by_repo(repo_url):
 
  
 
+ 
+
+ 
+
    
+
+ 
+
+ 
 
  
 
@@ -934,7 +1866,15 @@ def find_api_by_repo(repo_url):
 
  
 
+ 
+
+ 
+
     df['normalized_url'] = df['repository_url'].apply(normalize_repo_url)
+
+ 
+
+ 
 
  
 
@@ -942,7 +1882,15 @@ def find_api_by_repo(repo_url):
 
  
 
+ 
+
+ 
+
     for url in df['normalized_url'].tolist():
+
+ 
+
+ 
 
  
 
@@ -950,7 +1898,15 @@ def find_api_by_repo(repo_url):
 
  
 
+ 
+
+ 
+
    
+
+ 
+
+ 
 
  
 
@@ -958,7 +1914,15 @@ def find_api_by_repo(repo_url):
 
  
 
+ 
+
+ 
+
     matching_rows = df[df['normalized_url'] == normalized_input]
+
+ 
+
+ 
 
  
 
@@ -966,7 +1930,15 @@ def find_api_by_repo(repo_url):
 
  
 
+ 
+
+ 
+
    
+
+ 
+
+ 
 
  
 
@@ -974,7 +1946,15 @@ def find_api_by_repo(repo_url):
 
  
 
+ 
+
+ 
+
         # Return list of all APIs in this repository
+
+ 
+
+ 
 
  
 
@@ -982,7 +1962,15 @@ def find_api_by_repo(repo_url):
 
  
 
+ 
+
+ 
+
         for idx, row in matching_rows.iterrows():
+
+ 
+
+ 
 
  
 
@@ -990,7 +1978,15 @@ def find_api_by_repo(repo_url):
 
  
 
+ 
+
+ 
+
                 'repository_url': row['repository_url'],
+
+ 
+
+ 
 
  
 
@@ -998,7 +1994,15 @@ def find_api_by_repo(repo_url):
 
  
 
+ 
+
+ 
+
                 'version': row['version'],
+
+ 
+
+ 
 
  
 
@@ -1006,7 +2010,15 @@ def find_api_by_repo(repo_url):
 
  
 
+ 
+
+ 
+
                 'platform': row['platform'],
+
+ 
+
+ 
 
  
 
@@ -1014,7 +2026,15 @@ def find_api_by_repo(repo_url):
 
  
 
+ 
+
+ 
+
                 'classification': row['classification'],
+
+ 
+
+ 
 
  
 
@@ -1022,7 +2042,15 @@ def find_api_by_repo(repo_url):
 
  
 
+ 
+
+ 
+
            
+
+ 
+
+ 
 
  
 
@@ -1030,7 +2058,15 @@ def find_api_by_repo(repo_url):
 
  
 
+ 
+
+ 
+
             optional_fields = [
+
+ 
+
+ 
 
  
 
@@ -1038,7 +2074,15 @@ def find_api_by_repo(repo_url):
 
  
 
+ 
+
+ 
+
                 'api_contract_url',
+
+ 
+
+ 
 
  
 
@@ -1046,7 +2090,15 @@ def find_api_by_repo(repo_url):
 
  
 
+ 
+
+ 
+
                 'api_hosting_country',
+
+ 
+
+ 
 
  
 
@@ -1054,7 +2106,15 @@ def find_api_by_repo(repo_url):
 
  
 
+ 
+
+ 
+
                 'gateway_proxy_url',
+
+ 
+
+ 
 
  
 
@@ -1062,7 +2122,15 @@ def find_api_by_repo(repo_url):
 
  
 
+ 
+
+ 
+
                 'consumer_application_service_ids',
+
+ 
+
+ 
 
  
 
@@ -1070,7 +2138,15 @@ def find_api_by_repo(repo_url):
 
  
 
+ 
+
+ 
+
                 'consuming_group_member_code',
+
+ 
+
+ 
 
  
 
@@ -1078,7 +2154,15 @@ def find_api_by_repo(repo_url):
 
  
 
+ 
+
+ 
+
                 'owner_team',
+
+ 
+
+ 
 
  
 
@@ -1086,11 +2170,23 @@ def find_api_by_repo(repo_url):
 
  
 
+ 
+
+ 
+
             ]
 
  
 
+ 
+
+ 
+
            
+
+ 
+
+ 
 
  
 
@@ -1098,7 +2194,15 @@ def find_api_by_repo(repo_url):
 
  
 
+ 
+
+ 
+
                 if field in row and pd.notna(row[field]):
+
+ 
+
+ 
 
  
 
@@ -1106,7 +2210,15 @@ def find_api_by_repo(repo_url):
 
  
 
+ 
+
+ 
+
            
+
+ 
+
+ 
 
  
 
@@ -1114,11 +2226,23 @@ def find_api_by_repo(repo_url):
 
  
 
+ 
+
+ 
+
         return apis
 
  
 
+ 
+
+ 
+
    
+
+ 
+
+ 
 
  
 
@@ -1130,7 +2254,19 @@ def find_api_by_repo(repo_url):
 
  
 
+ 
+
+ 
+
+ 
+
+ 
+
 def is_valid_value(value):
+
+ 
+
+ 
 
  
 
@@ -1138,11 +2274,23 @@ def is_valid_value(value):
 
  
 
+ 
+
+ 
+
     if value is None:
 
  
 
+ 
+
+ 
+
         return False
+
+ 
+
+ 
 
  
 
@@ -1150,7 +2298,15 @@ def is_valid_value(value):
 
  
 
+ 
+
+ 
+
         return False
+
+ 
+
+ 
 
  
 
@@ -1158,7 +2314,15 @@ def is_valid_value(value):
 
  
 
+ 
+
+ 
+
         return False
+
+ 
+
+ 
 
  
 
@@ -1170,11 +2334,27 @@ def is_valid_value(value):
 
  
 
+ 
+
+ 
+
+ 
+
+ 
+
 def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
     """
+
+ 
+
+ 
 
  
 
@@ -1182,7 +2362,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
     DYNAMICALLY includes ALL fields present in the data
+
+ 
+
+ 
 
  
 
@@ -1190,7 +2378,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
     Returns JSON in apiMetaData wrapper format
+
+ 
+
+ 
 
  
 
@@ -1198,7 +2394,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
     # If single API (for backward compatibility), convert to list
+
+ 
+
+ 
 
  
 
@@ -1206,11 +2410,23 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
         api_data_list = [api_data_list]
 
  
 
+ 
+
+ 
+
    
+
+ 
+
+ 
 
  
 
@@ -1218,7 +2434,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
     MANDATORY_FIELDS = ['api_technical_name', 'version']
+
+ 
+
+ 
 
  
 
@@ -1226,7 +2450,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
    
+
+ 
+
+ 
 
  
 
@@ -1234,7 +2466,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
     # This is the ONLY place to update when adding new fields
+
+ 
+
+ 
 
  
 
@@ -1242,7 +2482,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
         # Mandatory fields
+
+ 
+
+ 
 
  
 
@@ -1250,11 +2498,23 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
         'version': 'version',
 
  
 
+ 
+
+ 
+
        
+
+ 
+
+ 
 
  
 
@@ -1262,7 +2522,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
         'classification': 'classification',
+
+ 
+
+ 
 
  
 
@@ -1270,7 +2538,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
         'api_contract_url': 'apiContractURL',
+
+ 
+
+ 
 
  
 
@@ -1278,7 +2554,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
         'api_hosting_country': 'apiHostingCountry',
+
+ 
+
+ 
 
  
 
@@ -1286,7 +2570,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
        
+
+ 
+
+ 
 
  
 
@@ -1294,7 +2586,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
         'snow_business_application_id': 'snowData.businessApplicationId',  # Fixed: Id not ID
+
+ 
+
+ 
 
  
 
@@ -1302,7 +2602,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
        
+
+ 
+
+ 
 
  
 
@@ -1310,7 +2618,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
     'source_code_url': 'sourceCode.url',
+
+ 
+
+ 
 
  
 
@@ -1318,7 +2634,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
     # Change: treat source_code_path as the URL (we no longer emit pathToSource)
+
+ 
+
+ 
 
  
 
@@ -1326,7 +2650,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
        
+
+ 
+
+ 
 
  
 
@@ -1334,7 +2666,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
         'platform_provider': 'platform.provider',
+
+ 
+
+ 
 
  
 
@@ -1342,7 +2682,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
         'platform_team': 'platform.team',
+
+ 
+
+ 
 
  
 
@@ -1350,11 +2698,23 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
         'gateway_config_url': 'platform.configURL',
 
  
 
+ 
+
+ 
+
        
+
+ 
+
+ 
 
  
 
@@ -1362,7 +2722,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
         'consumer_application_service_ids': 'consumers',  # Array of {applicationServiceId}
+
+ 
+
+ 
 
  
 
@@ -1370,7 +2738,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
         'consuming_group_member_code': 'consumingCountryGroups.groupMemberCode',  # Part of array
+
+ 
+
+ 
 
  
 
@@ -1378,7 +2754,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
    
+
+ 
+
+ 
 
  
 
@@ -1386,7 +2770,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
     VALIDATION_RULES = {
+
+ 
+
+ 
 
  
 
@@ -1394,7 +2786,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
             'regex': r'^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?$',  # No leading/trailing hyphens
+
+ 
+
+ 
 
  
 
@@ -1402,7 +2802,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
         },
+
+ 
+
+ 
 
  
 
@@ -1410,11 +2818,23 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
             'enum': ['ACTIVE', 'INACTIVE', 'DEPRECATED', 'DEVELOPMENT'],
 
  
 
+ 
+
+ 
+
             'transform': 'uppercase',
+
+ 
+
+ 
 
  
 
@@ -1422,7 +2842,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
         },
+
+ 
+
+ 
 
  
 
@@ -1430,11 +2858,23 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
             'enum': ['INTERNAL', 'EXTERNAL', 'CONFIDENTIAL', 'PUBLIC'],
 
  
 
+ 
+
+ 
+
             'transform': 'uppercase',
+
+ 
+
+ 
 
  
 
@@ -1442,7 +2882,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
         },
+
+ 
+
+ 
 
  
 
@@ -1450,11 +2898,23 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
             'regex': r'^[A-Z]{2}$',
 
  
 
+ 
+
+ 
+
             'transform': 'uppercase',
+
+ 
+
+ 
 
  
 
@@ -1462,7 +2922,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
         },
+
+ 
+
+ 
 
  
 
@@ -1470,7 +2938,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
             'regex': r'^[A-Z]{4}$',
+
+ 
+
+ 
 
  
 
@@ -1478,7 +2954,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
             'error': 'Must be 4 uppercase letters'
+
+ 
+
+ 
 
  
 
@@ -1486,7 +2970,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
     }
+
+ 
+
+ 
 
  
 
@@ -1494,7 +2986,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
     # Helper function to auto-correct and transform field value
+
+ 
+
+ 
 
  
 
@@ -1502,7 +3002,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
         """Auto-correct and transform field value according to rules"""
+
+ 
+
+ 
 
  
 
@@ -1510,7 +3018,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
             # Generic whitespace trim for all string fields (addresses platform.team regex failing on leading space)
+
+ 
+
+ 
 
  
 
@@ -1518,7 +3034,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
                 trimmed = value.strip()
+
+ 
+
+ 
 
  
 
@@ -1526,7 +3050,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
                 if trimmed != value:
+
+ 
+
+ 
 
  
 
@@ -1534,7 +3066,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
                 value = trimmed
+
+ 
+
+ 
 
  
 
@@ -1542,7 +3082,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
                 if field_name == 'team' and value == '':
+
+ 
+
+ 
 
  
 
@@ -1550,7 +3098,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
                 return value, corrections if corrections else None
+
+ 
+
+ 
 
  
 
@@ -1558,7 +3114,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
        
+
+ 
+
+ 
 
  
 
@@ -1566,7 +3130,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
         original_value = value
+
+ 
+
+ 
 
  
 
@@ -1574,7 +3146,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
        
+
+ 
+
+ 
 
  
 
@@ -1582,7 +3162,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
         if 'transform' in rule and rule['transform'] == 'uppercase':
+
+ 
+
+ 
 
  
 
@@ -1590,7 +3178,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
             if str(original_value) != value:
+
+ 
+
+ 
 
  
 
@@ -1602,7 +3198,19 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
+ 
+
+ 
+
         # Generic whitespace trimming (after case transform) for any string value
+
+ 
+
+ 
 
  
 
@@ -1610,7 +3218,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
             trimmed = value.strip()
+
+ 
+
+ 
 
  
 
@@ -1618,7 +3234,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
                 corrections.append(f"Trimmed whitespace: '{value}' → '{trimmed}'")
+
+ 
+
+ 
 
  
 
@@ -1626,7 +3250,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
        
+
+ 
+
+ 
 
  
 
@@ -1634,7 +3266,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
         if field_name == 'apiTechnicalName':
+
+ 
+
+ 
 
  
 
@@ -1642,7 +3282,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
             cleaned = re.sub(r'[^A-Za-z0-9-]', '', str(value))
+
+ 
+
+ 
 
  
 
@@ -1650,7 +3298,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
             cleaned = cleaned.strip('-')
+
+ 
+
+ 
 
  
 
@@ -1658,7 +3314,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
                 corrections.append(f"Cleaned apiTechnicalName: '{value}' → '{cleaned}'")
+
+ 
+
+ 
 
  
 
@@ -1666,7 +3330,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
        
+
+ 
+
+ 
 
  
 
@@ -1674,11 +3346,23 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
         if field_name == 'countryCode':
 
  
 
+ 
+
+ 
+
             original = value
+
+ 
+
+ 
 
  
 
@@ -1686,7 +3370,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
             if str(original).upper() != value and len(str(original)) > 2:
+
+ 
+
+ 
 
  
 
@@ -1694,7 +3386,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
        
+
+ 
+
+ 
 
  
 
@@ -1702,7 +3402,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
         if field_name == 'groupMemberCode':
+
+ 
+
+ 
 
  
 
@@ -1710,7 +3418,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
             value = str(value).upper()[:4]  # Take first 4 chars, uppercase
+
+ 
+
+ 
 
  
 
@@ -1718,11 +3434,23 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
                 corrections.append(f"Truncated groupMemberCode: '{original}' → '{value}'")
 
  
 
+ 
+
+ 
+
        
+
+ 
+
+ 
 
  
 
@@ -1730,7 +3458,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
         if 'enum' in rule:
+
+ 
+
+ 
 
  
 
@@ -1738,7 +3474,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
                 default_value = rule['enum'][0]
+
+ 
+
+ 
 
  
 
@@ -1746,11 +3490,23 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
                 value = default_value
 
  
 
+ 
+
+ 
+
        
+
+ 
+
+ 
 
  
 
@@ -1758,7 +3514,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
         if 'regex' in rule:
+
+ 
+
+ 
 
  
 
@@ -1766,7 +3530,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
                 # If still doesn't match, log warning but keep the value
+
+ 
+
+ 
 
  
 
@@ -1774,7 +3546,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
        
+
+ 
+
+ 
 
  
 
@@ -1782,7 +3562,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
    
+
+ 
+
+ 
 
  
 
@@ -1790,7 +3578,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
     api_list = []
+
+ 
+
+ 
 
  
 
@@ -1798,7 +3594,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
     validation_errors = []
+
+ 
+
+ 
 
  
 
@@ -1806,7 +3610,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
     for idx, api_data in enumerate(api_data_list):
+
+ 
+
+ 
 
  
 
@@ -1814,7 +3626,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
         missing_fields = []
+
+ 
+
+ 
 
  
 
@@ -1822,7 +3642,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
             if not is_valid_value(api_data.get(field)):
+
+ 
+
+ 
 
  
 
@@ -1830,7 +3658,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
        
+
+ 
+
+ 
 
  
 
@@ -1838,7 +3674,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
             api_name = api_data.get('api_technical_name', f'API #{idx+1}')
+
+ 
+
+ 
 
  
 
@@ -1846,7 +3690,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
             skipped_apis.append({'api': api_name, 'missing_fields': missing_fields})
+
+ 
+
+ 
 
  
 
@@ -1854,7 +3706,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
        
+
+ 
+
+ 
 
  
 
@@ -1862,7 +3722,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
         api_content = {}
+
+ 
+
+ 
 
  
 
@@ -1870,11 +3738,23 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
         api_errors = []
 
  
 
+ 
+
+ 
+
        
+
+ 
+
+ 
 
  
 
@@ -1882,7 +3762,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
         for internal_field, value in api_data.items():
+
+ 
+
+ 
 
  
 
@@ -1890,7 +3778,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
             if not is_valid_value(value):
+
+ 
+
+ 
 
  
 
@@ -1898,7 +3794,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
            
+
+ 
+
+ 
 
  
 
@@ -1906,7 +3810,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
             if internal_field == 'repository_url':
+
+ 
+
+ 
 
  
 
@@ -1914,7 +3826,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
            
+
+ 
+
+ 
 
  
 
@@ -1922,7 +3842,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
             if internal_field not in FIELD_MAPPING:
+
+ 
+
+ 
 
  
 
@@ -1930,7 +3858,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
                 # Add it as-is with camelCase conversion
+
+ 
+
+ 
 
  
 
@@ -1938,7 +3874,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
                 print(f"ℹ️  New field detected: '{internal_field}' -> '{json_key}'")
+
+ 
+
+ 
 
  
 
@@ -1946,11 +3890,23 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
                 continue
 
  
 
+ 
+
+ 
+
            
+
+ 
+
+ 
 
  
 
@@ -1958,7 +3914,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
            
+
+ 
+
+ 
 
  
 
@@ -1966,7 +3930,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
             if internal_field == 'consumer_application_service_ids':
+
+ 
+
+ 
 
  
 
@@ -1974,7 +3946,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
                 consumer_ids = value
+
+ 
+
+ 
 
  
 
@@ -1982,7 +3962,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
                     consumer_ids = [id.strip() for id in consumer_ids.split(',') if id.strip()]
+
+ 
+
+ 
 
  
 
@@ -1990,11 +3978,23 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
                     consumer_ids = [consumer_ids]
 
  
 
+ 
+
+ 
+
                
+
+ 
+
+ 
 
  
 
@@ -2002,7 +4002,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
                     api_content['consumers'] = [
+
+ 
+
+ 
 
  
 
@@ -2010,7 +4018,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
                     ]
+
+ 
+
+ 
 
  
 
@@ -2018,7 +4034,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
            
+
+ 
+
+ 
 
  
 
@@ -2026,7 +4050,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
             if internal_field in ['consuming_country_code', 'consuming_group_member_code']:
+
+ 
+
+ 
 
  
 
@@ -2034,7 +4066,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
                 continue
+
+ 
+
+ 
 
  
 
@@ -2042,7 +4082,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
             # Handle nested fields (contains '.')
+
+ 
+
+ 
 
  
 
@@ -2050,7 +4098,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
                 parts = json_path.split('.')
+
+ 
+
+ 
 
  
 
@@ -2058,11 +4114,23 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
                 field_name = parts[1]
 
  
 
+ 
+
+ 
+
                
+
+ 
+
+ 
 
  
 
@@ -2070,11 +4138,23 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
                     nested_sections[section] = {}
 
  
 
+ 
+
+ 
+
                
+
+ 
+
+ 
 
  
 
@@ -2082,7 +4162,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
                 corrected_value, corrections = auto_correct_field(field_name, value)
+
+ 
+
+ 
 
  
 
@@ -2090,7 +4178,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
                     for correction in corrections:
+
+ 
+
+ 
 
  
 
@@ -2098,7 +4194,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
                
+
+ 
+
+ 
 
  
 
@@ -2106,7 +4210,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
             else:
+
+ 
+
+ 
 
  
 
@@ -2114,7 +4226,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
                 corrected_value, corrections = auto_correct_field(json_path, value)
+
+ 
+
+ 
 
  
 
@@ -2122,7 +4242,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
                     for correction in corrections:
+
+ 
+
+ 
 
  
 
@@ -2130,7 +4258,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
                
+
+ 
+
+ 
 
  
 
@@ -2138,7 +4274,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
        
+
+ 
+
+ 
 
  
 
@@ -2146,7 +4290,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
         for mandatory_section in MANDATORY_SECTIONS:
+
+ 
+
+ 
 
  
 
@@ -2154,7 +4306,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
                 nested_sections[mandatory_section] = {}
+
+ 
+
+ 
 
  
 
@@ -2166,7 +4326,19 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
+ 
+
+ 
+
         # Inject hard-coded sourceCode.reference if not already provided
+
+ 
+
+ 
 
  
 
@@ -2174,7 +4346,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
             if 'reference' not in nested_sections['sourceCode'] or not nested_sections['sourceCode']['reference']:
+
+ 
+
+ 
 
  
 
@@ -2182,11 +4362,23 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
                 nested_sections['sourceCode']['reference'] = 'main'
 
  
 
+ 
+
+ 
+
        
+
+ 
+
+ 
 
  
 
@@ -2194,7 +4386,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
         for section, fields in nested_sections.items():
+
+ 
+
+ 
 
  
 
@@ -2202,7 +4402,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
        
+
+ 
+
+ 
 
  
 
@@ -2210,7 +4418,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
         country_codes = api_data.get('consuming_country_code', '')
+
+ 
+
+ 
 
  
 
@@ -2218,7 +4434,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
        
+
+ 
+
+ 
 
  
 
@@ -2226,7 +4450,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
             # Handle comma-separated lists
+
+ 
+
+ 
 
  
 
@@ -2234,7 +4466,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
                 country_codes = [c.strip() for c in country_codes.split(',') if c.strip()]
+
+ 
+
+ 
 
  
 
@@ -2242,11 +4482,23 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
                 country_codes = [country_codes] if country_codes else []
 
  
 
+ 
+
+ 
+
            
+
+ 
+
+ 
 
  
 
@@ -2254,7 +4506,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
                 group_codes = [g.strip() for g in group_codes.split(',') if g.strip()]
+
+ 
+
+ 
 
  
 
@@ -2262,7 +4522,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
                 group_codes = [group_codes] if group_codes else []
+
+ 
+
+ 
 
  
 
@@ -2270,7 +4538,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
             if country_codes or group_codes:
+
+ 
+
+ 
 
  
 
@@ -2278,7 +4554,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
                 country_group_list = []
+
+ 
+
+ 
 
  
 
@@ -2286,7 +4570,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
                     cc = country_codes[i] if i < len(country_codes) else (country_codes[0] if country_codes else '')
+
+ 
+
+ 
 
  
 
@@ -2294,7 +4586,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
                    
+
+ 
+
+ 
 
  
 
@@ -2302,7 +4602,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
                     cc_val, cc_corrections = auto_correct_field('countryCode', cc)
+
+ 
+
+ 
 
  
 
@@ -2310,7 +4618,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
                    
+
+ 
+
+ 
 
  
 
@@ -2318,11 +4634,23 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
                         for correction in cc_corrections:
 
  
 
+ 
+
+ 
+
                             print(f"  ✓ {correction}")
+
+ 
+
+ 
 
  
 
@@ -2330,7 +4658,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
                         for correction in gmc_corrections:
+
+ 
+
+ 
 
  
 
@@ -2338,7 +4674,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
                    
+
+ 
+
+ 
 
  
 
@@ -2346,7 +4690,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
                         'countryCode': cc_val,
+
+ 
+
+ 
 
  
 
@@ -2354,7 +4706,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
                     })
+
+ 
+
+ 
 
  
 
@@ -2362,11 +4722,23 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
                 api_content['consumingCountryGroups'] = country_group_list
 
  
 
+ 
+
+ 
+
        
+
+ 
+
+ 
 
  
 
@@ -2374,7 +4746,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
         if api_errors:
+
+ 
+
+ 
 
  
 
@@ -2382,7 +4762,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
             print(f"⚠️  Validation warnings for {api_data.get('api_technical_name')}: {api_errors}")
+
+ 
+
+ 
 
  
 
@@ -2390,11 +4778,23 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
         api_list.append(api_content)
 
  
 
+ 
+
+ 
+
    
+
+ 
+
+ 
 
  
 
@@ -2402,7 +4802,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
     if not api_list:
+
+ 
+
+ 
 
  
 
@@ -2410,7 +4818,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
         for skipped in skipped_apis:
+
+ 
+
+ 
 
  
 
@@ -2418,11 +4834,23 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
         raise ValueError(error_msg)
 
  
 
+ 
+
+ 
+
    
+
+ 
+
+ 
 
  
 
@@ -2430,7 +4858,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
     result = {
+
+ 
+
+ 
 
  
 
@@ -2438,7 +4874,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
             "apiMetaDataList": api_list
+
+ 
+
+ 
 
  
 
@@ -2446,7 +4890,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
     }
+
+ 
+
+ 
 
  
 
@@ -2454,7 +4906,15 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
     # Return JSON string with proper formatting
+
+ 
+
+ 
 
  
 
@@ -2466,7 +4926,19 @@ def validate_and_generate_json(api_data_list):
 
  
 
+ 
+
+ 
+
+ 
+
+ 
+
 @app.route('/api/search', methods=['POST'])
+
+ 
+
+ 
 
  
 
@@ -2474,7 +4946,15 @@ def search_api():
 
  
 
+ 
+
+ 
+
     """Search for API data by repository URL - returns all APIs in the repo"""
+
+ 
+
+ 
 
  
 
@@ -2482,11 +4962,23 @@ def search_api():
 
  
 
+ 
+
+ 
+
     repo_url = data.get('repository_url', '')
 
  
 
+ 
+
+ 
+
    
+
+ 
+
+ 
 
  
 
@@ -2494,11 +4986,23 @@ def search_api():
 
  
 
+ 
+
+ 
+
         return jsonify({'error': 'Repository URL is required'}), 400
 
  
 
+ 
+
+ 
+
    
+
+ 
+
+ 
 
  
 
@@ -2506,7 +5010,15 @@ def search_api():
 
  
 
+ 
+
+ 
+
    
+
+ 
+
+ 
 
  
 
@@ -2514,7 +5026,15 @@ def search_api():
 
  
 
+ 
+
+ 
+
         return jsonify({
+
+ 
+
+ 
 
  
 
@@ -2522,7 +5042,15 @@ def search_api():
 
  
 
+ 
+
+ 
+
             'count': len(api_data_list),
+
+ 
+
+ 
 
  
 
@@ -2530,7 +5058,15 @@ def search_api():
 
  
 
+ 
+
+ 
+
         })
+
+ 
+
+ 
 
  
 
@@ -2538,7 +5074,15 @@ def search_api():
 
  
 
+ 
+
+ 
+
         return jsonify({
+
+ 
+
+ 
 
  
 
@@ -2546,7 +5090,15 @@ def search_api():
 
  
 
+ 
+
+ 
+
             'message': 'No API data found for this repository'
+
+ 
+
+ 
 
  
 
@@ -2558,7 +5110,19 @@ def search_api():
 
  
 
+ 
+
+ 
+
+ 
+
+ 
+
 @app.route('/api/generate-json', methods=['POST'])
+
+ 
+
+ 
 
  
 
@@ -2566,7 +5130,15 @@ def generate_json_endpoint():
 
  
 
+ 
+
+ 
+
     """Generate APIX JSON file"""
+
+ 
+
+ 
 
  
 
@@ -2574,11 +5146,23 @@ def generate_json_endpoint():
 
  
 
+ 
+
+ 
+
     repo_url = data.get('repository_url', '')
 
  
 
+ 
+
+ 
+
    
+
+ 
+
+ 
 
  
 
@@ -2586,11 +5170,23 @@ def generate_json_endpoint():
 
  
 
+ 
+
+ 
+
         return jsonify({'error': 'Repository URL is required'}), 400
 
  
 
+ 
+
+ 
+
    
+
+ 
+
+ 
 
  
 
@@ -2598,7 +5194,15 @@ def generate_json_endpoint():
 
  
 
+ 
+
+ 
+
    
+
+ 
+
+ 
 
  
 
@@ -2606,7 +5210,15 @@ def generate_json_endpoint():
 
  
 
+ 
+
+ 
+
         return jsonify({'error': 'No API data found for this repository'}), 404
+
+ 
+
+ 
 
  
 
@@ -2614,7 +5226,15 @@ def generate_json_endpoint():
 
  
 
+ 
+
+ 
+
     try:
+
+ 
+
+ 
 
  
 
@@ -2622,7 +5242,15 @@ def generate_json_endpoint():
 
  
 
+ 
+
+ 
+
        
+
+ 
+
+ 
 
  
 
@@ -2630,7 +5258,15 @@ def generate_json_endpoint():
 
  
 
+ 
+
+ 
+
             'json': json_content,
+
+ 
+
+ 
 
  
 
@@ -2638,11 +5274,23 @@ def generate_json_endpoint():
 
  
 
+ 
+
+ 
+
         })
 
  
 
+ 
+
+ 
+
     except ValueError as e:
+
+ 
+
+ 
 
  
 
@@ -2654,7 +5302,19 @@ def generate_json_endpoint():
 
  
 
+ 
+
+ 
+
+ 
+
+ 
+
 @app.route('/api/validate', methods=['POST'])
+
+ 
+
+ 
 
  
 
@@ -2662,7 +5322,15 @@ def validate_json():
 
  
 
+ 
+
+ 
+
     """Validate JSON against APIX API"""
+
+ 
+
+ 
 
  
 
@@ -2670,15 +5338,31 @@ def validate_json():
 
  
 
+ 
+
+ 
+
     json_content = data.get('json_content', '')
 
  
 
-   
+ 
 
  
 
    
+
+ 
+
+ 
+
+ 
+
+   
+
+ 
+
+ 
 
  
 
@@ -2686,7 +5370,15 @@ def validate_json():
 
  
 
+ 
+
+ 
+
         return jsonify({'error': 'JSON content is required'}), 400
+
+ 
+
+ 
 
  
 
@@ -2694,11 +5386,23 @@ def validate_json():
 
  
 
+ 
+
+ 
+
     try:
 
  
 
+ 
+
+ 
+
         # Validation API endpoint (external). TODO: move Authorization to ENV.
+
+ 
+
+ 
 
  
 
@@ -2710,7 +5414,19 @@ def validate_json():
 
  
 
+ 
+
+ 
+
+ 
+
+ 
+
         headers = {
+
+ 
+
+ 
 
  
 
@@ -2718,7 +5434,15 @@ def validate_json():
 
  
 
+ 
+
+ 
+
             'Accept': 'application/json',
+
+ 
+
+ 
 
  
 
@@ -2726,7 +5450,15 @@ def validate_json():
 
  
 
+ 
+
+ 
+
             # WARNING: hard-coded token; replace with ENV var and never commit real secrets.
+
+ 
+
+ 
 
  
 
@@ -2734,7 +5466,19 @@ def validate_json():
 
  
 
+ 
+
+ 
+
         }
+
+ 
+
+ 
+
+ 
+
+ 
 
  
 
@@ -2750,7 +5494,19 @@ def validate_json():
 
  
 
+ 
+
+ 
+
+ 
+
+ 
+
         # Parse JSON string to dict for validation
+
+ 
+
+ 
 
  
 
@@ -2758,11 +5514,23 @@ def validate_json():
 
  
 
+ 
+
+ 
+
             json_data = json.loads(json_content) if isinstance(json_content, str) else json_content
 
  
 
+ 
+
+ 
+
         except json.JSONDecodeError as je:
+
+ 
+
+ 
 
  
 
@@ -2774,7 +5542,19 @@ def validate_json():
 
  
 
+ 
+
+ 
+
+ 
+
+ 
+
         def safe_json(resp):
+
+ 
+
+ 
 
  
 
@@ -2782,7 +5562,15 @@ def validate_json():
 
  
 
+ 
+
+ 
+
                 return resp.json(), None
+
+ 
+
+ 
 
  
 
@@ -2790,7 +5578,15 @@ def validate_json():
 
  
 
+ 
+
+ 
+
                 sample = (resp.text or '')[:400]
+
+ 
+
+ 
 
  
 
@@ -2798,7 +5594,15 @@ def validate_json():
 
  
 
+ 
+
+ 
+
                     'error': 'Non-JSON response from validation service',
+
+ 
+
+ 
 
  
 
@@ -2806,7 +5610,15 @@ def validate_json():
 
  
 
+ 
+
+ 
+
                     'content_type': resp.headers.get('Content-Type'),
+
+ 
+
+ 
 
  
 
@@ -2814,7 +5626,15 @@ def validate_json():
 
  
 
+ 
+
+ 
+
                     'exception': str(ve)
+
+ 
+
+ 
 
  
 
@@ -2826,7 +5646,19 @@ def validate_json():
 
  
 
+ 
+
+ 
+
+ 
+
+ 
+
         response = requests.post(
+
+ 
+
+ 
 
  
 
@@ -2834,7 +5666,15 @@ def validate_json():
 
  
 
+ 
+
+ 
+
             json=json_data,
+
+ 
+
+ 
 
  
 
@@ -2842,7 +5682,15 @@ def validate_json():
 
  
 
+ 
+
+ 
+
             proxies=PROXIES if PROXIES else None,
+
+ 
+
+ 
 
  
 
@@ -2850,11 +5698,27 @@ def validate_json():
 
  
 
+ 
+
+ 
+
             timeout=30
 
  
 
+ 
+
+ 
+
         )
+
+ 
+
+ 
+
+ 
+
+ 
 
  
 
@@ -2866,7 +5730,15 @@ def validate_json():
 
  
 
+ 
+
+ 
+
         if body_err:
+
+ 
+
+ 
 
  
 
@@ -2878,11 +5750,27 @@ def validate_json():
 
  
 
+ 
+
+ 
+
+ 
+
+ 
+
         if response.status_code == 200:
 
  
 
+ 
+
+ 
+
             return jsonify({
+
+ 
+
+ 
 
  
 
@@ -2890,7 +5778,15 @@ def validate_json():
 
  
 
+ 
+
+ 
+
                 'message': 'JSON validation successful',
+
+ 
+
+ 
 
  
 
@@ -2898,7 +5794,15 @@ def validate_json():
 
  
 
+ 
+
+ 
+
             })
+
+ 
+
+ 
 
  
 
@@ -2906,7 +5810,15 @@ def validate_json():
 
  
 
+ 
+
+ 
+
             return jsonify({
+
+ 
+
+ 
 
  
 
@@ -2914,7 +5826,15 @@ def validate_json():
 
  
 
+ 
+
+ 
+
                 'message': 'JSON validation failed',
+
+ 
+
+ 
 
  
 
@@ -2922,7 +5842,15 @@ def validate_json():
 
  
 
+ 
+
+ 
+
                 'errors': body_json
+
+ 
+
+ 
 
  
 
@@ -2930,7 +5858,15 @@ def validate_json():
 
  
 
+ 
+
+ 
+
            
+
+ 
+
+ 
 
  
 
@@ -2938,7 +5874,15 @@ def validate_json():
 
  
 
+ 
+
+ 
+
         return jsonify({'error': f'Validation API request failed: {str(e)}'}), 500
+
+ 
+
+ 
 
  
 
@@ -2946,7 +5890,15 @@ def validate_json():
 
  
 
+ 
+
+ 
+
         return jsonify({'error': f'Invalid JSON format: {str(e)}'}), 400
+
+ 
+
+ 
 
  
 
@@ -2954,7 +5906,19 @@ def validate_json():
 
  
 
+ 
+
+ 
+
         return jsonify({'error': str(e)}), 500
+
+ 
+
+ 
+
+ 
+
+ 
 
  
 
@@ -2966,7 +5930,15 @@ def validate_json():
 
  
 
+ 
+
+ 
+
 def create_pr():
+
+ 
+
+ 
 
  
 
@@ -2974,7 +5946,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
     data = request.json
+
+ 
+
+ 
 
  
 
@@ -2982,7 +5962,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
     json_content = data.get('json_content', '')
+
+ 
+
+ 
 
  
 
@@ -2990,7 +5978,19 @@ def create_pr():
 
  
 
+ 
+
+ 
+
     github_token = os.environ.get('SERVICE_GITHUB_TOKEN') or os.environ.get('GITHUB_TOKEN') or ''
+
+ 
+
+ 
+
+ 
+
+ 
 
  
 
@@ -3002,7 +6002,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
         return jsonify({'error': 'Missing required fields (repository_url, json_content)'}), 400
+
+ 
+
+ 
 
  
 
@@ -3010,7 +6018,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
         return jsonify({'error': 'Server is not configured with SERVICE_GITHUB_TOKEN or GITHUB_TOKEN environment variable'}), 500
+
+ 
+
+ 
 
  
 
@@ -3018,7 +6034,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
     try:
+
+ 
+
+ 
 
  
 
@@ -3026,7 +6050,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
         # Example: https://github.com/owner/repo or https://github.company.com/owner/repo
+
+ 
+
+ 
 
  
 
@@ -3034,7 +6066,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
         owner = parts[-2]
+
+ 
+
+ 
 
  
 
@@ -3042,7 +6082,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
        
+
+ 
+
+ 
 
  
 
@@ -3050,7 +6098,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
         auth_header = f'Bearer {github_token}' if github_token.startswith('ghp_') or github_token.startswith('github_pat_') else f'token {github_token}'
+
+ 
+
+ 
 
  
 
@@ -3058,7 +6114,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
             'Authorization': auth_header,
+
+ 
+
+ 
 
  
 
@@ -3066,7 +6130,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
             'Accept': 'application/vnd.github+json',
+
+ 
+
+ 
 
  
 
@@ -3074,11 +6146,23 @@ def create_pr():
 
  
 
+ 
+
+ 
+
             'X-GitHub-Api-Version': '2022-11-28'
 
  
 
+ 
+
+ 
+
         }
+
+ 
+
+ 
 
  
 
@@ -3090,7 +6174,19 @@ def create_pr():
 
  
 
+ 
+
+ 
+
+ 
+
+ 
+
         # Detect if user accidentally supplied YAML instead of JSON and convert
+
+ 
+
+ 
 
  
 
@@ -3098,7 +6194,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
             import yaml as _yaml
+
+ 
+
+ 
 
  
 
@@ -3106,7 +6210,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
                 # Quick heuristic: Presence of ':' line separators without braces
+
+ 
+
+ 
 
  
 
@@ -3114,7 +6226,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
                     loaded = _yaml.safe_load(text)
+
+ 
+
+ 
 
  
 
@@ -3122,7 +6242,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
                         return json.dumps(loaded, indent=2), True, None
+
+ 
+
+ 
 
  
 
@@ -3130,7 +6258,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
             except Exception as _e:
+
+ 
+
+ 
 
  
 
@@ -3142,7 +6278,19 @@ def create_pr():
 
  
 
+ 
+
+ 
+
+ 
+
+ 
+
         converted_content, was_yaml, yaml_error = attempt_yaml_to_json(json_content)
+
+ 
+
+ 
 
  
 
@@ -3150,7 +6298,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
             print(f"YAML parse attempt failed (ignored): {yaml_error}")
+
+ 
+
+ 
 
  
 
@@ -3158,7 +6314,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
             print("Detected YAML input; converted to JSON before commit.")
+
+ 
+
+ 
 
  
 
@@ -3170,7 +6334,19 @@ def create_pr():
 
  
 
+ 
+
+ 
+
+ 
+
+ 
+
         # Validate that json_content is valid JSON now
+
+ 
+
+ 
 
  
 
@@ -3178,7 +6354,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
             parsed_json = json.loads(json_content)
+
+ 
+
+ 
 
  
 
@@ -3186,7 +6370,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
             return jsonify({'error': 'json_content is not valid JSON after optional YAML conversion', 'detail': str(je), 'offset': je.pos}), 400
+
+ 
+
+ 
 
  
 
@@ -3194,7 +6386,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
         # Get default branch
+
+ 
+
+ 
 
  
 
@@ -3202,7 +6402,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
         print(f"Fetching repo info: {repo_info_url}")
+
+ 
+
+ 
 
  
 
@@ -3210,7 +6418,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
             try:
+
+ 
+
+ 
 
  
 
@@ -3218,7 +6434,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
             except ValueError as ve:
+
+ 
+
+ 
 
  
 
@@ -3226,7 +6450,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
                 return None, {
+
+ 
+
+ 
 
  
 
@@ -3234,7 +6466,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
                     'phase': phase,
+
+ 
+
+ 
 
  
 
@@ -3242,7 +6482,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
                     'content_type': resp.headers.get('Content-Type'),
+
+ 
+
+ 
 
  
 
@@ -3250,7 +6498,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
                     'exception': str(ve)
+
+ 
+
+ 
 
  
 
@@ -3262,7 +6518,19 @@ def create_pr():
 
  
 
+ 
+
+ 
+
+ 
+
+ 
+
         repo_response = requests.get(
+
+ 
+
+ 
 
  
 
@@ -3270,7 +6538,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
             headers=headers,
+
+ 
+
+ 
 
  
 
@@ -3278,7 +6554,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
             verify=SSL_VERIFY
+
+ 
+
+ 
 
  
 
@@ -3286,7 +6570,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
         repo_json, repo_err = safe_json(repo_response, 'repo_info')
+
+ 
+
+ 
 
  
 
@@ -3294,7 +6586,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
             return jsonify(repo_err), 502
+
+ 
+
+ 
 
  
 
@@ -3302,7 +6602,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
             error_msg = repo_json.get('message', 'Unknown error') if repo_json else 'Unknown'
+
+ 
+
+ 
 
  
 
@@ -3310,7 +6618,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
             return jsonify({'error': 'Failed to access repository', 'status_code': repo_response.status_code, 'details': repo_json}), 400
+
+ 
+
+ 
 
  
 
@@ -3318,11 +6634,23 @@ def create_pr():
 
  
 
+ 
+
+ 
+
         print(f"Default branch: {default_branch}")
 
  
 
+ 
+
+ 
+
        
+
+ 
+
+ 
 
  
 
@@ -3330,7 +6658,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
         ref_url = f'{GITHUB_API_BASE}/repos/{owner}/{repo}/git/refs/heads/{default_branch}'
+
+ 
+
+ 
 
  
 
@@ -3338,7 +6674,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
         ref_json, ref_err = safe_json(ref_response, 'ref_lookup')
+
+ 
+
+ 
 
  
 
@@ -3346,7 +6690,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
             return jsonify(ref_err), 502
+
+ 
+
+ 
 
  
 
@@ -3354,7 +6706,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
             error_msg = ref_json.get('message', 'Unknown error') if ref_json else 'Unknown'
+
+ 
+
+ 
 
  
 
@@ -3362,7 +6722,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
             return jsonify({'error': 'Failed to get branch reference', 'status_code': ref_response.status_code, 'details': ref_json}), 400
+
+ 
+
+ 
 
  
 
@@ -3370,7 +6738,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
             base_sha = ref_json['object']['sha']
+
+ 
+
+ 
 
  
 
@@ -3378,7 +6754,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
             return jsonify({'error': 'object.sha missing in ref response', 'ref_json': ref_json}), 502
+
+ 
+
+ 
 
  
 
@@ -3386,109 +6770,119 @@ def create_pr():
 
  
 
+ 
+
+ 
+
        
+
+ 
+
+ 
 
  
 
         # Get API data to determine EMI ID for branch naming
 
+ 
+
         api_data_list = find_api_by_repo(repo_url)
+
+ 
 
         if api_data_list:
 
+ 
+
             # Use first API's EMI ID for branch naming
+
+ 
 
             first_api = api_data_list[0] if isinstance(api_data_list, list) else api_data_list
 
+ 
+
             emi_id = first_api.get('emi_id', 'unknown-emi')
+
+ 
 
             # Clean EMI ID for branch naming (remove special chars, lowercase)
 
+ 
+
             clean_emi_id = re.sub(r'[^a-zA-Z0-9-]', '', str(emi_id).lower())
 
-            branch_name = f'apix_{clean_emi_id}'
+ 
 
+            branch_name = f'apix_{clean_emi_id}'
+  
             print(f"Using EMI ID: {emi_id} -> branch: {branch_name}")
 
+ 
+
         else:
-
+  
             # Fallback to timestamp if no API data found
-
+  
             branch_name = f'apix-metadata-{datetime.now().strftime("%Y%m%d-%H%M%S")}'
-
+  
             print(f"No API data found, using timestamp branch: {branch_name}")
 
- 
-
         # Create a new branch
+        # First, check if the branch already exists so we can reuse it
+        existing_branch_url = f'{GITHUB_API_BASE}/repos/{owner}/{repo}/git/refs/heads/{branch_name}'
+        existing_branch_response = requests.get(
+            existing_branch_url,
+            headers=headers,
+            proxies=PROXIES if PROXIES else None,
+            verify=SSL_VERIFY
+        )
 
- 
+        if existing_branch_response.status_code == 200:
+            # Branch already exists – reuse it instead of trying to create again
+            print(f"Branch already exists, reusing: {branch_name}")
+        else:
+            # Only attempt to create the branch if it does not already exist
+            create_branch_url = f'{GITHUB_API_BASE}/repos/{owner}/{repo}/git/refs'
 
-        create_branch_url = f'{GITHUB_API_BASE}/repos/{owner}/{repo}/git/refs'
+            branch_data = {
 
- 
+                'ref': f'refs/heads/{branch_name}',
 
-        branch_data = {
+                'sha': base_sha
 
- 
+            }
 
-            'ref': f'refs/heads/{branch_name}',
+            print(f"Creating branch: {branch_name}")
 
- 
+            branch_response = requests.post(create_branch_url, json=branch_data, headers=headers, proxies=PROXIES if PROXIES else None, verify=SSL_VERIFY)
 
-            'sha': base_sha
+            branch_json, branch_err = safe_json(branch_response, 'branch_create')
 
- 
+            if branch_err:
 
-        }
+                return jsonify(branch_err), 502
 
- 
+            if branch_response.status_code not in (200, 201):
 
-        print(f"Creating branch: {branch_name}")
+                error_msg = branch_json.get('message', 'Unknown error') if branch_json else 'Unknown'
 
- 
+                # If GitHub reports that the reference already exists, treat it as a non-fatal condition
+                if branch_response.status_code == 422 and 'Reference already exists' in str(error_msg):
+                    print(f"Branch {branch_name} already exists according to GitHub; continuing with existing branch")
+                else:
+                    print(f"Failed to create branch: {branch_response.status_code} - {error_msg}")
 
-        branch_response = requests.post(create_branch_url, json=branch_data, headers=headers, proxies=PROXIES if PROXIES else None, verify=SSL_VERIFY)
+                    return jsonify({'error': 'Failed to create branch', 'status_code': branch_response.status_code, 'details': branch_json}), 400
 
- 
-
-        branch_json, branch_err = safe_json(branch_response, 'branch_create')
-
- 
-
-        if branch_err:
-
- 
-
-            return jsonify(branch_err), 502
-
- 
-
-        if branch_response.status_code not in (200, 201):
-
- 
-
-            error_msg = branch_json.get('message', 'Unknown error') if branch_json else 'Unknown'
-
- 
-
-            print(f"Failed to create branch: {branch_response.status_code} - {error_msg}")
-
- 
-
-            return jsonify({'error': 'Failed to create branch', 'status_code': branch_response.status_code, 'details': branch_json}), 400
-
+            print(f"Branch created successfully: {branch_name}")
  
 
        
 
  
 
-        print(f"Branch created successfully: {branch_name}")
-
  
-
-       
 
  
 
@@ -3496,7 +6890,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
         file_path = 'apix-metadata.json'
+
+ 
+
+ 
 
  
 
@@ -3504,7 +6906,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
        
+
+ 
+
+ 
 
  
 
@@ -3512,7 +6922,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
         file_check = requests.get(f'{file_url}?ref={branch_name}', headers=headers, proxies=PROXIES if PROXIES else None, verify=SSL_VERIFY)
+
+ 
+
+ 
 
  
 
@@ -3524,7 +6942,19 @@ def create_pr():
 
  
 
+ 
+
+ 
+
+ 
+
+ 
+
         file_data = {
+
+ 
+
+ 
 
  
 
@@ -3532,7 +6962,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
             'content': base64.b64encode(json_content.encode()).decode(),
+
+ 
+
+ 
 
  
 
@@ -3540,7 +6978,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
             # Add committer info optionally (GitHub may attribute to token user automatically)
+
+ 
+
+ 
 
  
 
@@ -3548,7 +6994,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
        
+
+ 
+
+ 
 
  
 
@@ -3556,7 +7010,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
             sha = file_check_json.get('sha') if file_check_json else None
+
+ 
+
+ 
 
  
 
@@ -3564,7 +7026,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
                 return jsonify({'error': 'Missing sha in existing file response', 'details': file_check_json}), 502
+
+ 
+
+ 
 
  
 
@@ -3572,11 +7042,23 @@ def create_pr():
 
  
 
+ 
+
+ 
+
             print(f"File exists, updating...")
 
  
 
+ 
+
+ 
+
         else:
+
+ 
+
+ 
 
  
 
@@ -3584,7 +7066,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
        
+
+ 
+
+ 
 
  
 
@@ -3592,7 +7082,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
         file_resp_json, file_resp_err = safe_json(file_response, 'file_put')
+
+ 
+
+ 
 
  
 
@@ -3600,7 +7098,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
             return jsonify(file_resp_err), 502
+
+ 
+
+ 
 
  
 
@@ -3608,7 +7114,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
             error_msg = file_resp_json.get('message', 'Unknown error') if file_resp_json else 'Unknown'
+
+ 
+
+ 
 
  
 
@@ -3616,11 +7130,23 @@ def create_pr():
 
  
 
+ 
+
+ 
+
             return jsonify({'error': 'Failed to create file', 'status_code': file_response.status_code, 'details': file_resp_json}), 400
 
  
 
+ 
+
+ 
+
        
+
+ 
+
+ 
 
  
 
@@ -3628,7 +7154,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
        
+
+ 
+
+ 
 
  
 
@@ -3636,7 +7170,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
         pr_url = f'{GITHUB_API_BASE}/repos/{owner}/{repo}/pulls'
+
+ 
+
+ 
 
  
 
@@ -3644,7 +7186,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
             'title': 'Add APIX metadata JSON file',
+
+ 
+
+ 
 
  
 
@@ -3652,7 +7202,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
             'head': branch_name,
+
+ 
+
+ 
 
  
 
@@ -3660,7 +7218,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
         }
+
+ 
+
+ 
 
  
 
@@ -3668,7 +7234,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
         pr_response = requests.post(pr_url, json=pr_data, headers=headers, proxies=PROXIES if PROXIES else None, verify=SSL_VERIFY)
+
+ 
+
+ 
 
  
 
@@ -3676,7 +7250,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
         if pr_err:
+
+ 
+
+ 
 
  
 
@@ -3684,7 +7266,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
         if pr_response.status_code == 201:
+
+ 
+
+ 
 
  
 
@@ -3692,7 +7282,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
             print(f"PR created successfully: {pr_info['html_url']}")
+
+ 
+
+ 
 
  
 
@@ -3700,7 +7298,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
                 'success': True,
+
+ 
+
+ 
 
  
 
@@ -3708,7 +7314,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
                 'pr_number': pr_info['number']
+
+ 
+
+ 
 
  
 
@@ -3716,7 +7330,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
         else:
+
+ 
+
+ 
 
  
 
@@ -3724,7 +7346,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
             errors = pr_json.get('errors', []) if pr_json else []
+
+ 
+
+ 
 
  
 
@@ -3732,7 +7362,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
             if errors:
+
+ 
+
+ 
 
  
 
@@ -3740,7 +7378,15 @@ def create_pr():
 
  
 
+ 
+
+ 
+
             return jsonify({'error': 'Failed to create pull request', 'status_code': pr_response.status_code, 'details': pr_json}), 400
+
+ 
+
+ 
 
  
 
@@ -3748,11 +7394,27 @@ def create_pr():
 
  
 
+ 
+
+ 
+
     except Exception as e:
 
  
 
+ 
+
+ 
+
         return jsonify({'error': str(e)}), 500
+
+ 
+
+ 
+
+ 
+
+ 
 
  
 
@@ -3764,11 +7426,23 @@ def create_pr():
 
  
 
+ 
+
+ 
+
 def upload_excel():
 
  
 
+ 
+
+ 
+
     """
+
+ 
+
+ 
 
  
 
@@ -3776,7 +7450,15 @@ def upload_excel():
 
  
 
+ 
+
+ 
+
     Returns all APIs grouped by repository URL
+
+ 
+
+ 
 
  
 
@@ -3784,7 +7466,15 @@ def upload_excel():
 
  
 
+ 
+
+ 
+
     try:
+
+ 
+
+ 
 
  
 
@@ -3792,11 +7482,23 @@ def upload_excel():
 
  
 
+ 
+
+ 
+
             return jsonify({'error': 'No file provided'}), 400
 
  
 
+ 
+
+ 
+
        
+
+ 
+
+ 
 
  
 
@@ -3804,7 +7506,15 @@ def upload_excel():
 
  
 
+ 
+
+ 
+
        
+
+ 
+
+ 
 
  
 
@@ -3812,11 +7522,23 @@ def upload_excel():
 
  
 
+ 
+
+ 
+
             return jsonify({'error': 'No file selected'}), 400
 
  
 
+ 
+
+ 
+
        
+
+ 
+
+ 
 
  
 
@@ -3824,11 +7546,23 @@ def upload_excel():
 
  
 
+ 
+
+ 
+
             return jsonify({'error': 'Only Excel files (.xlsx, .xls) are supported'}), 400
 
  
 
+ 
+
+ 
+
        
+
+ 
+
+ 
 
  
 
@@ -3836,7 +7570,15 @@ def upload_excel():
 
  
 
+ 
+
+ 
+
         temp_path = os.path.join('/tmp', f'upload_{datetime.now().timestamp()}.xlsx')
+
+ 
+
+ 
 
  
 
@@ -3844,7 +7586,15 @@ def upload_excel():
 
  
 
+ 
+
+ 
+
        
+
+ 
+
+ 
 
  
 
@@ -3852,7 +7602,15 @@ def upload_excel():
 
  
 
+ 
+
+ 
+
        
+
+ 
+
+ 
 
  
 
@@ -3860,11 +7618,23 @@ def upload_excel():
 
  
 
+ 
+
+ 
+
         grouped_apis = parse_transposed_excel(temp_path)
 
  
 
+ 
+
+ 
+
        
+
+ 
+
+ 
 
  
 
@@ -3872,11 +7642,23 @@ def upload_excel():
 
  
 
+ 
+
+ 
+
         os.remove(temp_path)
 
  
 
+ 
+
+ 
+
        
+
+ 
+
+ 
 
  
 
@@ -3884,11 +7666,23 @@ def upload_excel():
 
  
 
+ 
+
+ 
+
             return jsonify({'error': 'No valid API data found in Excel file'}), 400
 
  
 
+ 
+
+ 
+
        
+
+ 
+
+ 
 
  
 
@@ -3896,7 +7690,15 @@ def upload_excel():
 
  
 
+ 
+
+ 
+
         result = {
+
+ 
+
+ 
 
  
 
@@ -3904,7 +7706,15 @@ def upload_excel():
 
  
 
+ 
+
+ 
+
             'total_apis': sum(len(apis) for apis in grouped_apis.values()),
+
+ 
+
+ 
 
  
 
@@ -3912,11 +7722,23 @@ def upload_excel():
 
  
 
+ 
+
+ 
+
         }
 
  
 
+ 
+
+ 
+
        
+
+ 
+
+ 
 
  
 
@@ -3924,7 +7746,15 @@ def upload_excel():
 
  
 
+ 
+
+ 
+
             result['repositories'][repo_url] = {
+
+ 
+
+ 
 
  
 
@@ -3932,7 +7762,15 @@ def upload_excel():
 
  
 
+ 
+
+ 
+
                 'apis': apis
+
+ 
+
+ 
 
  
 
@@ -3940,7 +7778,15 @@ def upload_excel():
 
  
 
+ 
+
+ 
+
        
+
+ 
+
+ 
 
  
 
@@ -3948,7 +7794,15 @@ def upload_excel():
 
  
 
+ 
+
+ 
+
        
+
+ 
+
+ 
 
  
 
@@ -3956,7 +7810,15 @@ def upload_excel():
 
  
 
+ 
+
+ 
+
         print(f"Error in upload_excel: {e}")
+
+ 
+
+ 
 
  
 
@@ -3964,11 +7826,27 @@ def upload_excel():
 
  
 
+ 
+
+ 
+
         traceback.print_exc()
 
  
 
+ 
+
+ 
+
         return jsonify({'error': str(e)}), 500
+
+ 
+
+ 
+
+ 
+
+ 
 
  
 
@@ -3980,11 +7858,23 @@ def upload_excel():
 
  
 
+ 
+
+ 
+
 def generate_json_from_upload():
 
  
 
+ 
+
+ 
+
     """
+
+ 
+
+ 
 
  
 
@@ -3992,7 +7882,15 @@ def generate_json_from_upload():
 
  
 
+ 
+
+ 
+
     Request body: { repository_url: string, apis: [...] }
+
+ 
+
+ 
 
  
 
@@ -4000,7 +7898,15 @@ def generate_json_from_upload():
 
  
 
+ 
+
+ 
+
     try:
+
+ 
+
+ 
 
  
 
@@ -4008,7 +7914,15 @@ def generate_json_from_upload():
 
  
 
+ 
+
+ 
+
         repo_url = data.get('repository_url')
+
+ 
+
+ 
 
  
 
@@ -4016,7 +7930,15 @@ def generate_json_from_upload():
 
  
 
+ 
+
+ 
+
        
+
+ 
+
+ 
 
  
 
@@ -4024,11 +7946,23 @@ def generate_json_from_upload():
 
  
 
+ 
+
+ 
+
             return jsonify({'error': 'repository_url and apis are required'}), 400
 
  
 
+ 
+
+ 
+
        
+
+ 
+
+ 
 
  
 
@@ -4036,11 +7970,23 @@ def generate_json_from_upload():
 
  
 
+ 
+
+ 
+
         json_content = validate_and_generate_json(apis)
 
  
 
+ 
+
+ 
+
        
+
+ 
+
+ 
 
  
 
@@ -4048,7 +7994,15 @@ def generate_json_from_upload():
 
  
 
+ 
+
+ 
+
             'json': json_content,
+
+ 
+
+ 
 
  
 
@@ -4056,7 +8010,15 @@ def generate_json_from_upload():
 
  
 
+ 
+
+ 
+
             'repository_url': repo_url,
+
+ 
+
+ 
 
  
 
@@ -4064,7 +8026,15 @@ def generate_json_from_upload():
 
  
 
+ 
+
+ 
+
         })
+
+ 
+
+ 
 
  
 
@@ -4072,11 +8042,23 @@ def generate_json_from_upload():
 
  
 
+ 
+
+ 
+
     except ValueError as e:
 
  
 
+ 
+
+ 
+
         print(f"Error generating JSON: {e}")
+
+ 
+
+ 
 
  
 
@@ -4084,7 +8066,15 @@ def generate_json_from_upload():
 
  
 
+ 
+
+ 
+
     except Exception as e:
+
+ 
+
+ 
 
  
 
@@ -4092,7 +8082,15 @@ def generate_json_from_upload():
 
  
 
+ 
+
+ 
+
         import traceback
+
+ 
+
+ 
 
  
 
@@ -4100,7 +8098,19 @@ def generate_json_from_upload():
 
  
 
+ 
+
+ 
+
         return jsonify({'error': str(e)}), 500
+
+ 
+
+ 
+
+ 
+
+ 
 
  
 
@@ -4109,189 +8119,436 @@ def generate_json_from_upload():
  
 
 @app.route('/api/check-pr-status', methods=['POST'])
+
 def check_pr_status():
+
     """Check if PR for a repository has been merged"""
+
     data = request.json
+
     repo_url = data.get('repository_url', '')
-    
+
+   
+
     if not repo_url:
+
         return jsonify({'error': 'Repository URL is required'}), 400
-    
+
+   
+
     # GitHub token from environment
+
     github_token = os.environ.get('SERVICE_GITHUB_TOKEN') or os.environ.get('GITHUB_TOKEN') or ''
-    
+
+   
+
     if not github_token:
+
         return jsonify({'error': 'Server is not configured with GitHub token'}), 500
-    
+
+   
+
     try:
+
         # Parse repository owner and name from URL
+
         parts = repo_url.rstrip('/').split('/')
+
         owner = parts[-2]
+
         repo = parts[-1].replace('.git', '')
-        
+
+       
+
         # Get API data to determine EMI ID for branch naming
+
         api_data_list = find_api_by_repo(repo_url)
+
         if not api_data_list:
+
             return jsonify({'error': 'No API data found for this repository'}), 404
-        
+
+       
+
         # Use first API's EMI ID for branch naming (same logic as create_pr)
+
         first_api = api_data_list[0] if isinstance(api_data_list, list) else api_data_list
+
         emi_id = first_api.get('emi_id', 'unknown-emi')
+
         clean_emi_id = re.sub(r'[^a-zA-Z0-9-]', '', str(emi_id).lower())
+
         branch_name = f'apix_{clean_emi_id}'
-        
+
+       
+
         # Setup headers
+
         auth_header = f'Bearer {github_token}' if github_token.startswith('ghp_') or github_token.startswith('github_pat_') else f'token {github_token}'
+
         headers = {
+
             'Authorization': auth_header,
+
             'Accept': 'application/vnd.github+json',
+
             'User-Agent': 'apix-automation-tool',
+
             'X-GitHub-Api-Version': '2022-11-28'
+
         }
-        
+
+       
+
         # Search for PRs from our branch
+
         pr_search_url = f'{GITHUB_API_BASE}/repos/{owner}/{repo}/pulls'
+
         pr_params = {
+
             'head': f'{owner}:{branch_name}',
+
             'state': 'all'  # Include both open and closed PRs
+
         }
-        
+
+       
+
         pr_response = requests.get(
+
             pr_search_url,
+
             headers=headers,
+
             params=pr_params,
+
             proxies=PROXIES if PROXIES else None,
+
             verify=SSL_VERIFY
+
         )
-        
+
+       
+
         if pr_response.status_code != 200:
+
             return jsonify({
+
                 'error': 'Failed to fetch PR information',
+
                 'status_code': pr_response.status_code
+
             }), 400
-        
+
+       
+
         prs = pr_response.json()
-        
+
+       
+
         if not prs:
+
             return jsonify({
+
                 'pr_exists': False,
+
                 'is_merged': False,
+
                 'message': 'No PR found for this repository. Please create a PR first.',
+
                 'can_publish': False
+
             })
-        
+
+       
+
         # Get the most recent PR
+
         latest_pr = prs[0]
-        
+
+        pr_number = latest_pr['number']
+
+       
+
+        # For closed PRs, we need to check the specific PR details to get accurate merge status
+
+        # GitHub's PR list API doesn't always include the 'merged' field accurately
+
+        if latest_pr['state'] == 'closed':
+
+            pr_detail_url = f'{GITHUB_API_BASE}/repos/{owner}/{repo}/pulls/{pr_number}'
+
+            print(f"Checking detailed PR info: {pr_detail_url}")
+
+           
+
+            pr_detail_response = requests.get(
+
+                pr_detail_url,
+
+                headers=headers,
+
+                proxies=PROXIES if PROXIES else None,
+
+                verify=SSL_VERIFY
+
+            )
+
+           
+
+            if pr_detail_response.status_code == 200:
+
+                pr_details = pr_detail_response.json()
+
+                is_merged = pr_details.get('merged', False)
+
+                merged_at = pr_details.get('merged_at')
+
+                print(f"PR #{pr_number} detailed check - Merged: {is_merged}, Merged at: {merged_at}")
+
+            else:
+
+                print(f"Failed to get PR details, using list data. Status: {pr_detail_response.status_code}")
+
+                # Fallback to the list response data
+
+                is_merged = latest_pr.get('merged', False)
+
+                merged_at = latest_pr.get('merged_at')
+
+        else:
+
+            is_merged = latest_pr.get('merged', False)
+
+            merged_at = latest_pr.get('merged_at')
+
+       
+
         pr_status = {
+
             'pr_exists': True,
-            'pr_number': latest_pr['number'],
+
+            'pr_number': pr_number,
+
             'pr_url': latest_pr['html_url'],
+
             'pr_state': latest_pr['state'],
-            'is_merged': latest_pr.get('merged', False),
-            'merged_at': latest_pr.get('merged_at'),
+
+            'is_merged': is_merged,
+
+            'merged_at': merged_at,
+
             'can_publish': False,
+
             'message': ''
+
         }
-        
-        if latest_pr.get('merged', False):
+
+       
+
+        print(f"Final PR status - PR #{pr_number}, State: {latest_pr['state']}, Merged: {is_merged}")
+
+       
+
+        if is_merged:
+
             pr_status['can_publish'] = True
-            pr_status['message'] = f'✅ PR #{latest_pr["number"]} has been merged! You can now publish.'
+
+            pr_status['message'] = f'✅ PR #{pr_number} has been merged! You can now publish.'
+
         elif latest_pr['state'] == 'open':
-            pr_status['message'] = f'⏳ PR #{latest_pr["number"]} is still open. Waiting for approval and merge.'
-        elif latest_pr['state'] == 'closed' and not latest_pr.get('merged', False):
-            pr_status['message'] = f'❌ PR #{latest_pr["number"]} was closed without merging. Please create a new PR.'
-        
+
+            pr_status['message'] = f'⏳ PR #{pr_number} is still open. Waiting for approval and merge.'
+
+        elif latest_pr['state'] == 'closed' and not is_merged:
+
+            pr_status['message'] = f'❌ PR #{pr_number} was closed without merging. Please create a new PR.'
+
+       
+
         return jsonify(pr_status)
-        
+
+       
+
     except Exception as e:
+
         return jsonify({'error': str(e)}), 500
+
+ 
 
 @app.route('/api/publish', methods=['POST'])
+
 def publish_api():
+
     """Publish API metadata (placeholder for actual publish logic)"""
+
     data = request.json
+
     repo_url = data.get('repository_url', '')
-    
+
+   
+
     if not repo_url:
+
         return jsonify({'error': 'Repository URL is required'}), 400
-    
+
+   
+
     try:
+
         # First check if PR is merged by calling the check function directly
+
         # We need to create a mock request object for the check function
+
         from flask import Flask
+
         with app.test_request_context(json={'repository_url': repo_url}):
+
             pr_status_response = check_pr_status()
+
             if isinstance(pr_status_response, tuple):
+
                 pr_status_data = pr_status_response[0].get_json()
+
             else:
+
                 pr_status_data = pr_status_response.get_json()
-        
+
+       
+
         if not pr_status_data.get('can_publish', False):
+
             return jsonify({
+
                 'error': 'Cannot publish: PR not merged yet',
+
                 'message': pr_status_data.get('message', 'PR status unknown')
+
             }), 400
-        
+
+       
+
         # Get API data
+
         api_data_list = find_api_by_repo(repo_url)
+
         if not api_data_list:
+
             return jsonify({'error': 'No API data found for this repository'}), 404
-        
+
+       
+
         # Generate JSON content for publishing
+
         json_content = validate_and_generate_json(api_data_list)
-        
+
+       
+
         # Call the actual APIX publish API
+
         publish_url = 'https://dev.apix.uk.hsbc/api/v1/publish/apis'
-        
+
+       
+
         headers = {
+
             'Content-Type': 'application/json',
+
             'Accept': 'application/json',
+
             'Invocation-Source': 'CI_ABC',
+
             'Authorization': os.environ.get('APIX_VALIDATION_TOKEN', 'REPLACE_ME')
+
         }
-        
+
+       
+
         print(f"Publishing API metadata to: {publish_url}")
+
         print(f"Repository: {repo_url}")
+
         print(f"API count: {len(api_data_list) if isinstance(api_data_list, list) else 1}")
-        
+
+       
+
         # Parse JSON content for the API call
+
         try:
+
             json_data = json.loads(json_content) if isinstance(json_content, str) else json_content
+
         except json.JSONDecodeError as je:
+
             return jsonify({'error': 'Generated JSON content is invalid', 'detail': str(je)}), 500
-        
+
+       
+
         # Make the publish API call
+
         response = requests.post(
+
             publish_url,
+
             json=json_data,
+
             headers=headers,
+
             proxies=PROXIES if PROXIES else None,
+
             verify=SSL_VERIFY,
+
             timeout=30
+
         )
-        
+
+       
+
         if response.status_code == 200:
+
             return jsonify({
+
                 'success': True,
+
                 'message': '🎉 API metadata published successfully!',
+
                 'repository_url': repo_url,
+
                 'published_apis': len(api_data_list) if isinstance(api_data_list, list) else 1,
+
                 'timestamp': datetime.utcnow().isoformat() + 'Z',
+
                 'publish_response': response.json() if response.text else {}
+
             })
+
         else:
+
             error_details = response.json() if response.text else {'error': response.text}
+
             return jsonify({
+
                 'error': 'Failed to publish API metadata',
+
                 'status_code': response.status_code,
+
                 'details': error_details
+
             }), 400
-        
+
+       
+
     except Exception as e:
+
         return jsonify({'error': str(e)}), 500
 
+ 
+
 @app.route('/api/health', methods=['GET'])
+
+ 
+
+ 
 
  
 
@@ -4299,7 +8556,15 @@ def health():
 
  
 
+ 
+
+ 
+
     """Health check endpoint"""
+
+ 
+
+ 
 
  
 
@@ -4311,7 +8576,19 @@ def health():
 
  
 
+ 
+
+ 
+
+ 
+
+ 
+
 @app.route('/api/ping', methods=['GET'])
+
+ 
+
+ 
 
  
 
@@ -4319,7 +8596,15 @@ def ping():
 
  
 
+ 
+
+ 
+
     """Simple ping endpoint for deployment smoke test"""
+
+ 
+
+ 
 
  
 
@@ -4331,7 +8616,19 @@ def ping():
 
  
 
+ 
+
+ 
+
+ 
+
+ 
+
 @app.route('/api/echo', methods=['GET', 'POST'])
+
+ 
+
+ 
 
  
 
@@ -4339,7 +8636,15 @@ def echo():
 
  
 
+ 
+
+ 
+
     """Echo endpoint: returns provided message (query param ?msg= or JSON body {"message": "..."})"""
+
+ 
+
+ 
 
  
 
@@ -4347,7 +8652,15 @@ def echo():
 
  
 
+ 
+
+ 
+
     if not msg and request.is_json:
+
+ 
+
+ 
 
  
 
@@ -4355,7 +8668,15 @@ def echo():
 
  
 
+ 
+
+ 
+
         msg = body.get('message')
+
+ 
+
+ 
 
  
 
@@ -4363,7 +8684,15 @@ def echo():
 
  
 
+ 
+
+ 
+
         msg = 'ok'
+
+ 
+
+ 
 
  
 
@@ -4371,7 +8700,15 @@ def echo():
 
  
 
+ 
+
+ 
+
         'echo': msg,
+
+ 
+
+ 
 
  
 
@@ -4379,7 +8716,15 @@ def echo():
 
  
 
+ 
+
+ 
+
         'sslVerify': bool(SSL_VERIFY),
+
+ 
+
+ 
 
  
 
@@ -4387,7 +8732,15 @@ def echo():
 
  
 
+ 
+
+ 
+
         'githubApiBase': GITHUB_API_BASE
+
+ 
+
+ 
 
  
 
@@ -4399,10 +8752,20 @@ def echo():
 
  
 
+ 
+
+ 
+
+ 
+
+ 
+
 if __name__ == '__main__':
 
  
 
-    app.run(debug=True, port=5001, host='127.0.0.1')
+ 
 
  
+
+    app.run(debug=True, port=5001, host='127.0.0.1')
