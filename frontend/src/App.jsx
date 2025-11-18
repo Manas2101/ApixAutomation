@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-import { Search, FileText, Eye, GitPullRequest, CheckCircle, XCircle, Loader, Shield, RefreshCw, Send } from 'lucide-react';
+import { Search, FileText, Eye, GitPullRequest, CheckCircle, XCircle, Loader, Shield, RefreshCw, Send, GitBranch } from 'lucide-react';
 
  
 
@@ -1853,6 +1853,32 @@ function App() {
                         {prStatus.message}
 
                       </p>
+
+                      
+
+                      {/* Branch Status Information */}
+
+                      {prStatus.hasOwnProperty('branch_exists') && (
+
+                        <div className="mt-3 flex items-center gap-2 text-sm">
+
+                          <GitBranch size={16} className={prStatus.branch_exists ? 'text-green-600' : 'text-gray-400'} />
+
+                          <span className={prStatus.branch_exists ? 'text-green-700' : 'text-gray-600'}>
+
+                            Branch: {prStatus.branch_exists ? 'Exists' : 'Not Found'}
+
+                          </span>
+
+                          {!prStatus.branch_exists && (
+
+                            <span className="text-gray-500 text-xs">(Will be created when PR is made)</span>
+
+                          )}
+
+                        </div>
+
+                      )}
 
                       {prStatus.pr_url && (
 

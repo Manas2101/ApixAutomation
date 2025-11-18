@@ -8200,6 +8200,28 @@ def check_pr_status():
 
        
 
+        # First, check if the branch actually exists in the repository
+        branch_check_url = f'{GITHUB_API_BASE}/repos/{owner}/{repo}/git/refs/heads/{branch_name}'
+        branch_response = requests.get(
+            branch_check_url,
+            headers=headers,
+            proxies=PROXIES if PROXIES else None,
+            verify=SSL_VERIFY
+        )
+        
+        branch_exists = branch_response.status_code == 200
+        print(f"Branch {branch_name} exists: {branch_exists}")
+        
+        # If branch doesn't exist, treat as no PR regardless of PR history
+        if not branch_exists:
+            return jsonify({
+                'pr_exists': False,
+                'is_merged': False,
+                'branch_exists': False,
+                'message': 'No active branch found. Please create a new PR.',
+                'can_publish': False
+            })
+
         # Search for PRs from our branch
 
         pr_search_url = f'{GITHUB_API_BASE}/repos/{owner}/{repo}/pulls'
@@ -8253,6 +8275,8 @@ def check_pr_status():
                 'pr_exists': False,
 
                 'is_merged': False,
+
+                'branch_exists': True,
 
                 'message': 'No PR found for this repository. Please create a PR first.',
 
@@ -8337,6 +8361,8 @@ def check_pr_status():
             'is_merged': is_merged,
 
             'merged_at': merged_at,
+
+            'branch_exists': True,
 
             'can_publish': False,
 
