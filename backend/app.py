@@ -1,96 +1,24 @@
 from flask import Flask, request, jsonify
 
- 
-
- 
-
- 
-
 from flask_cors import CORS
-
- 
-
- 
-
- 
 
 import pandas as pd
 
- 
-
- 
-
- 
-
 import yaml
-
- 
-
- 
-
- 
 
 import json
 
- 
-
- 
-
- 
-
 import os
-
- 
-
- 
-
- 
 
 import requests
 
- 
-
- 
-
- 
-
 from datetime import datetime
-
- 
-
- 
-
- 
 
 import base64
 
- 
-
- 
-
- 
-
 from collections import defaultdict
 
- 
-
- 
-
- 
-
 import re
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
 
  
 
@@ -98,7 +26,12 @@ app = Flask(__name__)
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -106,15 +39,24 @@ CORS(app, resources={r"/api/*": {"origins": "*", "methods": ["GET", "POST", "OPT
 
  
 
- 
 
  
 
- 
 
  
 
+
  
+
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -122,7 +64,12 @@ CORS(app, resources={r"/api/*": {"origins": "*", "methods": ["GET", "POST", "OPT
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -130,7 +77,12 @@ PROXIES = {
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -138,7 +90,12 @@ PROXIES = {
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -146,7 +103,12 @@ PROXIES = {
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -154,7 +116,12 @@ PROXIES = {
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -162,7 +129,12 @@ PROXIES = {
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -170,7 +142,12 @@ PROXIES = {k: v for k, v in PROXIES.items() if v is not None}
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -178,15 +155,24 @@ print(f"Using proxies: {PROXIES if PROXIES else 'None (direct connection)'}")
 
  
 
- 
 
  
 
- 
 
  
 
+
  
+
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -194,7 +180,12 @@ print(f"Using proxies: {PROXIES if PROXIES else 'None (direct connection)'}")
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -202,7 +193,12 @@ SSL_VERIFY = os.environ.get('SSL_VERIFY', 'true').lower() != 'false'
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -210,15 +206,24 @@ SSL_CERT_PATH = os.environ.get('SSL_CERT_PATH', None)
 
  
 
- 
 
  
 
- 
 
  
 
+
  
+
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -226,7 +231,12 @@ if not SSL_VERIFY:
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -234,7 +244,12 @@ if not SSL_VERIFY:
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -242,7 +257,12 @@ if not SSL_VERIFY:
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -250,7 +270,12 @@ if not SSL_VERIFY:
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -258,7 +283,12 @@ elif SSL_CERT_PATH:
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -266,7 +296,12 @@ elif SSL_CERT_PATH:
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -274,15 +309,24 @@ elif SSL_CERT_PATH:
 
  
 
- 
 
  
 
- 
 
  
 
+
  
+
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -290,7 +334,12 @@ elif SSL_CERT_PATH:
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -298,7 +347,12 @@ GITHUB_API_BASE = os.environ.get('GITHUB_API_BASE', 'https://alm-github.systems.
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -306,15 +360,23 @@ print(f"GitHub API Base URL: {GITHUB_API_BASE}")
 
  
 
- 
 
  
 
  
 
- 
 
  
+
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -322,7 +384,12 @@ print(f"GitHub API Base URL: {GITHUB_API_BASE}")
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -330,7 +397,12 @@ print(f"GitHub API Base URL: {GITHUB_API_BASE}")
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -338,7 +410,20 @@ DATA_FILE = os.environ.get('API_META_DATA_FILE', '../API_MetaData.xlsx')
 
  
 
+CIS_EIM_ID ='8824821'
+
+CIS_JIRA_ID='CODAP-58218'
+
  
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -346,15 +431,24 @@ print(f"API MetaData file path: {DATA_FILE}")
 
  
 
- 
 
  
 
- 
 
  
 
+
  
+
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -362,7 +456,12 @@ print(f"API MetaData file path: {DATA_FILE}")
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -370,15 +469,24 @@ print(f"APIX_VALIDATION_TOKEN: {os.environ.get('APIX_VALIDATION_TOKEN')}")
 
  
 
- 
 
  
 
- 
 
  
 
+
  
+
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -386,7 +494,12 @@ def load_api_data():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -394,7 +507,12 @@ def load_api_data():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -402,7 +520,12 @@ def load_api_data():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -410,7 +533,12 @@ def load_api_data():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -418,7 +546,12 @@ def load_api_data():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -426,7 +559,12 @@ def load_api_data():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -434,7 +572,12 @@ def load_api_data():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -442,7 +585,12 @@ def load_api_data():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -450,15 +598,25 @@ def load_api_data():
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -466,7 +624,12 @@ def load_api_data():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -474,15 +637,25 @@ def load_api_data():
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -490,7 +663,12 @@ def load_api_data():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -498,7 +676,12 @@ def load_api_data():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -506,7 +689,12 @@ def load_api_data():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -514,7 +702,12 @@ def load_api_data():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -522,7 +715,12 @@ def load_api_data():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -530,7 +728,12 @@ def load_api_data():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -538,7 +741,12 @@ def load_api_data():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -546,7 +754,12 @@ def load_api_data():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -554,7 +767,12 @@ def load_api_data():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -562,7 +780,12 @@ def load_api_data():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -570,7 +793,12 @@ def load_api_data():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -578,7 +806,12 @@ def load_api_data():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -586,7 +819,12 @@ def load_api_data():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -594,7 +832,12 @@ def load_api_data():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -602,7 +845,12 @@ def load_api_data():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -610,15 +858,25 @@ def load_api_data():
 
  
 
- 
 
  
 
-           
 
  
 
+
  
+
+          
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -626,7 +884,12 @@ def load_api_data():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -634,7 +897,12 @@ def load_api_data():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -642,7 +910,12 @@ def load_api_data():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -650,7 +923,12 @@ def load_api_data():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -658,7 +936,12 @@ def load_api_data():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -666,7 +949,12 @@ def load_api_data():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -674,15 +962,25 @@ def load_api_data():
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -690,7 +988,12 @@ def load_api_data():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -698,7 +1001,12 @@ def load_api_data():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -706,15 +1014,24 @@ def load_api_data():
 
  
 
- 
 
  
 
- 
 
  
 
+
  
+
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -722,7 +1039,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -730,7 +1052,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -738,15 +1065,25 @@ def parse_transposed_excel(file_path):
 
  
 
- 
 
  
 
-    - Each sheet represents an EMI ID (for reference)
 
  
 
+
  
+
+    - Each sheet represents an EIM ID (for reference)
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -754,7 +1091,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -762,7 +1104,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -770,7 +1117,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -778,7 +1130,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -786,7 +1143,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -794,7 +1156,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -802,15 +1169,25 @@ def parse_transposed_excel(file_path):
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -818,7 +1195,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -826,15 +1208,25 @@ def parse_transposed_excel(file_path):
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -842,7 +1234,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -850,7 +1247,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -858,7 +1260,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -866,7 +1273,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -874,7 +1286,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -882,7 +1299,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -890,7 +1312,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -898,7 +1325,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -906,7 +1338,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -914,7 +1351,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -922,7 +1364,13 @@ def parse_transposed_excel(file_path):
 
  
 
+
+ 
+
             # Source code fields - exact Excel column names
+
+ 
+
 
  
 
@@ -930,7 +1378,13 @@ def parse_transposed_excel(file_path):
 
  
 
+
+ 
+
             'SourceCode Reference': 'source_code_reference',
+
+ 
+
 
  
 
@@ -938,7 +1392,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -946,7 +1405,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -954,7 +1418,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -962,7 +1431,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -970,7 +1444,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -978,7 +1457,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -986,7 +1470,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -994,7 +1483,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1002,7 +1496,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1010,7 +1509,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1018,7 +1522,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1026,7 +1535,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1034,7 +1548,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1042,7 +1561,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1050,7 +1574,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1058,15 +1587,25 @@ def parse_transposed_excel(file_path):
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -1074,7 +1613,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1082,7 +1626,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1090,15 +1639,25 @@ def parse_transposed_excel(file_path):
 
  
 
- 
 
  
 
-           
 
  
 
+
  
+
+          
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -1106,7 +1665,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1114,7 +1678,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1122,27 +1691,46 @@ def parse_transposed_excel(file_path):
 
  
 
-           
 
  
 
-            # Store EMI ID from sheet name for each API in this sheet
+          
 
  
 
-            emi_id = sheet_name.strip()
 
  
 
- 
+            # Store EIM ID from sheet name for each API in this sheet
 
  
 
-           
 
  
 
+            eim_id = sheet_name.strip()
+
  
+
+
+ 
+
+
+ 
+
+
+ 
+
+          
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -1150,7 +1738,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1158,7 +1751,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1166,15 +1764,25 @@ def parse_transposed_excel(file_path):
 
  
 
- 
 
  
 
-           
 
  
 
+
  
+
+          
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -1182,7 +1790,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1190,7 +1803,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1198,15 +1816,25 @@ def parse_transposed_excel(file_path):
 
  
 
- 
 
  
 
-           
 
  
 
+
  
+
+          
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -1214,7 +1842,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1222,7 +1855,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1230,15 +1868,25 @@ def parse_transposed_excel(file_path):
 
  
 
- 
 
  
 
-               
 
  
 
+
  
+
+              
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -1246,7 +1894,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1254,7 +1907,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1262,7 +1920,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1270,15 +1933,25 @@ def parse_transposed_excel(file_path):
 
  
 
- 
 
  
 
-                       
 
  
 
+
  
+
+                      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -1286,7 +1959,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1294,7 +1972,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1302,15 +1985,25 @@ def parse_transposed_excel(file_path):
 
  
 
- 
 
  
 
-               
 
  
 
+
  
+
+              
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -1318,7 +2011,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1326,11 +2024,20 @@ def parse_transposed_excel(file_path):
 
  
 
-                    # Add EMI ID to each API data
 
  
 
-                    api_data['emi_id'] = emi_id
+                    # Add EIM ID to each API data
+
+ 
+
+
+ 
+
+                    api_data['eim_id'] = eim_id
+
+ 
+
 
  
 
@@ -1338,23 +2045,38 @@ def parse_transposed_excel(file_path):
 
  
 
- 
 
  
 
-                    print(f"  API {col_idx}: {api_data.get('api_technical_name', 'N/A')} -> {api_data.get('repository_url', 'N/A')} (EMI: {emi_id})")
 
  
 
- 
 
  
 
-       
+                    print(f"  API {col_idx}: {api_data.get('api_technical_name', 'N/A')} -> {api_data.get('repository_url', 'N/A')} (EIM: {eim_id})")
 
  
 
+
  
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -1362,15 +2084,25 @@ def parse_transposed_excel(file_path):
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -1378,7 +2110,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1386,7 +2123,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1394,7 +2136,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1402,7 +2149,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1410,15 +2162,25 @@ def parse_transposed_excel(file_path):
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -1426,7 +2188,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1434,7 +2201,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1442,15 +2214,25 @@ def parse_transposed_excel(file_path):
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -1458,15 +2240,25 @@ def parse_transposed_excel(file_path):
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -1474,7 +2266,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1482,7 +2279,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1490,7 +2292,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1498,7 +2305,12 @@ def parse_transposed_excel(file_path):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1506,15 +2318,24 @@ def parse_transposed_excel(file_path):
 
  
 
- 
 
  
 
- 
 
  
 
+
  
+
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -1522,7 +2343,12 @@ def normalize_repo_url(url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1530,7 +2356,12 @@ def normalize_repo_url(url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1538,7 +2369,12 @@ def normalize_repo_url(url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1546,7 +2382,12 @@ def normalize_repo_url(url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1554,7 +2395,12 @@ def normalize_repo_url(url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1562,7 +2408,12 @@ def normalize_repo_url(url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1570,7 +2421,12 @@ def normalize_repo_url(url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1578,7 +2434,12 @@ def normalize_repo_url(url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1586,7 +2447,12 @@ def normalize_repo_url(url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1594,7 +2460,12 @@ def normalize_repo_url(url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1602,15 +2473,24 @@ def normalize_repo_url(url):
 
  
 
- 
 
  
 
- 
 
  
 
+
  
+
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -1618,7 +2498,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1626,7 +2511,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1634,7 +2524,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1642,7 +2537,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1650,15 +2550,25 @@ def find_api_by_repo(repo_url):
 
  
 
- 
 
  
 
-   
 
  
 
+
  
+
+  
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -1666,7 +2576,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1674,15 +2589,25 @@ def find_api_by_repo(repo_url):
 
  
 
- 
 
  
 
-   
 
  
 
+
  
+
+  
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -1690,7 +2615,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1698,7 +2628,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1706,7 +2641,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1714,7 +2654,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1722,7 +2667,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1730,7 +2680,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1738,7 +2693,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1746,7 +2706,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1754,7 +2719,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1762,7 +2732,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1770,7 +2745,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1778,15 +2758,25 @@ def find_api_by_repo(repo_url):
 
  
 
- 
 
  
 
-   
 
  
 
+
  
+
+  
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -1794,7 +2784,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1802,15 +2797,25 @@ def find_api_by_repo(repo_url):
 
  
 
- 
 
  
 
-   
 
  
 
+
  
+
+  
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -1818,7 +2823,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1826,7 +2836,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1834,7 +2849,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1842,7 +2862,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1850,15 +2875,25 @@ def find_api_by_repo(repo_url):
 
  
 
- 
 
  
 
-   
 
  
 
+
  
+
+  
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -1866,7 +2901,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1874,7 +2914,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1882,7 +2927,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1890,7 +2940,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1898,15 +2953,25 @@ def find_api_by_repo(repo_url):
 
  
 
- 
 
  
 
-   
 
  
 
+
  
+
+  
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -1914,7 +2979,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1922,7 +2992,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1930,15 +3005,25 @@ def find_api_by_repo(repo_url):
 
  
 
- 
 
  
 
-   
 
  
 
+
  
+
+  
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -1946,7 +3031,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1954,7 +3044,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1962,7 +3057,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1970,7 +3070,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1978,7 +3083,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1986,7 +3096,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -1994,7 +3109,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2002,7 +3122,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2010,7 +3135,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2018,7 +3148,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2026,7 +3161,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2034,7 +3174,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2042,15 +3187,25 @@ def find_api_by_repo(repo_url):
 
  
 
- 
 
  
 
-           
 
  
 
+
  
+
+          
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -2058,7 +3213,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2066,7 +3226,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2074,7 +3239,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2082,7 +3252,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2090,7 +3265,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2098,7 +3278,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2106,7 +3291,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2114,7 +3304,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2122,7 +3317,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2130,7 +3330,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2138,7 +3343,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2146,7 +3356,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2154,7 +3369,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2162,7 +3382,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2170,7 +3395,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2178,15 +3408,25 @@ def find_api_by_repo(repo_url):
 
  
 
- 
 
  
 
-           
 
  
 
+
  
+
+          
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -2194,7 +3434,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2202,7 +3447,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2210,15 +3460,25 @@ def find_api_by_repo(repo_url):
 
  
 
- 
 
  
 
-           
 
  
 
+
  
+
+          
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -2226,7 +3486,12 @@ def find_api_by_repo(repo_url):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2234,15 +3499,25 @@ def find_api_by_repo(repo_url):
 
  
 
- 
 
  
 
-   
 
  
 
+
  
+
+  
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -2250,15 +3525,24 @@ def find_api_by_repo(repo_url):
 
  
 
- 
 
  
 
- 
 
  
 
+
  
+
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -2266,7 +3550,12 @@ def is_valid_value(value):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2274,7 +3563,12 @@ def is_valid_value(value):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2282,7 +3576,12 @@ def is_valid_value(value):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2290,7 +3589,12 @@ def is_valid_value(value):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2298,7 +3602,12 @@ def is_valid_value(value):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2306,7 +3615,12 @@ def is_valid_value(value):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2314,7 +3628,12 @@ def is_valid_value(value):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2322,7 +3641,12 @@ def is_valid_value(value):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2330,15 +3654,24 @@ def is_valid_value(value):
 
  
 
- 
 
  
 
- 
 
  
 
+
  
+
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -2346,7 +3679,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2354,7 +3692,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2362,7 +3705,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2370,7 +3718,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2378,7 +3731,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2386,7 +3744,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2394,7 +3757,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2402,7 +3770,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2410,7 +3783,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2418,15 +3796,25 @@ def validate_and_generate_json(api_data_list):
 
  
 
- 
 
  
 
-   
 
  
 
+
  
+
+  
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -2434,7 +3822,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2442,7 +3835,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2450,15 +3848,25 @@ def validate_and_generate_json(api_data_list):
 
  
 
- 
 
  
 
-   
 
  
 
+
  
+
+  
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -2466,7 +3874,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2474,7 +3887,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2482,7 +3900,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2490,7 +3913,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2498,7 +3926,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2506,15 +3939,25 @@ def validate_and_generate_json(api_data_list):
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -2522,7 +3965,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2530,7 +3978,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2538,7 +3991,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2546,7 +4004,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2554,7 +4017,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2562,7 +4030,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2570,15 +4043,25 @@ def validate_and_generate_json(api_data_list):
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -2586,7 +4069,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2594,7 +4082,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2602,15 +4095,25 @@ def validate_and_generate_json(api_data_list):
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -2618,7 +4121,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2626,7 +4134,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2634,7 +4147,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2642,7 +4160,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2650,15 +4173,25 @@ def validate_and_generate_json(api_data_list):
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -2666,7 +4199,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2674,7 +4212,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2682,7 +4225,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2690,7 +4238,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2698,7 +4251,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2706,15 +4264,25 @@ def validate_and_generate_json(api_data_list):
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -2722,7 +4290,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2730,7 +4303,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2738,7 +4316,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2746,7 +4329,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2754,15 +4342,25 @@ def validate_and_generate_json(api_data_list):
 
  
 
- 
 
  
 
-   
 
  
 
+
  
+
+  
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -2770,7 +4368,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2778,7 +4381,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2786,7 +4394,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2794,7 +4407,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2802,7 +4420,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2810,7 +4433,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2818,7 +4446,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2826,7 +4459,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2834,7 +4472,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2842,7 +4485,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2850,7 +4498,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2858,7 +4511,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2866,7 +4524,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2874,7 +4537,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2882,7 +4550,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2890,7 +4563,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2898,7 +4576,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2906,7 +4589,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2914,7 +4602,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2922,7 +4615,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2930,7 +4628,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2938,7 +4641,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2946,7 +4654,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2954,7 +4667,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2962,7 +4680,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2970,7 +4693,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -2978,15 +4706,25 @@ def validate_and_generate_json(api_data_list):
 
  
 
- 
 
  
 
-   
 
  
 
+
  
+
+  
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -2994,7 +4732,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3002,7 +4745,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3010,7 +4758,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3018,7 +4771,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3026,7 +4784,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3034,7 +4797,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3042,7 +4810,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3050,7 +4823,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3058,7 +4836,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3066,7 +4849,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3074,7 +4862,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3082,7 +4875,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3090,7 +4888,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3098,7 +4901,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3106,7 +4914,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3114,15 +4927,25 @@ def validate_and_generate_json(api_data_list):
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -3130,7 +4953,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3138,7 +4966,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3146,15 +4979,25 @@ def validate_and_generate_json(api_data_list):
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -3162,7 +5005,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3170,7 +5018,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3178,7 +5031,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3186,7 +5044,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3194,15 +5057,24 @@ def validate_and_generate_json(api_data_list):
 
  
 
- 
 
  
 
- 
 
  
 
+
  
+
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -3210,7 +5082,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3218,7 +5095,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3226,7 +5108,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3234,7 +5121,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3242,7 +5134,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3250,15 +5147,25 @@ def validate_and_generate_json(api_data_list):
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -3266,7 +5173,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3274,7 +5186,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3282,7 +5199,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3290,7 +5212,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3298,7 +5225,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3306,7 +5238,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3314,7 +5251,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3322,7 +5264,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3330,15 +5277,25 @@ def validate_and_generate_json(api_data_list):
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -3346,7 +5303,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3354,7 +5316,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3362,7 +5329,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3370,7 +5342,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3378,7 +5355,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3386,15 +5368,25 @@ def validate_and_generate_json(api_data_list):
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -3402,7 +5394,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3410,7 +5407,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3418,7 +5420,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3426,7 +5433,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3434,7 +5446,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3442,15 +5459,25 @@ def validate_and_generate_json(api_data_list):
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -3458,7 +5485,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3466,7 +5498,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3474,7 +5511,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3482,7 +5524,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3490,7 +5537,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3498,15 +5550,25 @@ def validate_and_generate_json(api_data_list):
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -3514,7 +5576,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3522,7 +5589,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3530,7 +5602,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3538,7 +5615,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3546,15 +5628,25 @@ def validate_and_generate_json(api_data_list):
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -3562,15 +5654,25 @@ def validate_and_generate_json(api_data_list):
 
  
 
- 
 
  
 
-   
 
  
 
+
  
+
+  
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -3578,7 +5680,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3586,7 +5693,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3594,7 +5706,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3602,15 +5719,25 @@ def validate_and_generate_json(api_data_list):
 
  
 
- 
 
  
 
-   
 
  
 
+
  
+
+  
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -3618,7 +5745,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3626,7 +5758,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3634,7 +5771,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3642,7 +5784,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3650,7 +5797,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3658,15 +5810,25 @@ def validate_and_generate_json(api_data_list):
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -3674,7 +5836,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3682,7 +5849,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3690,7 +5862,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3698,7 +5875,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3706,15 +5888,25 @@ def validate_and_generate_json(api_data_list):
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -3722,7 +5914,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3730,7 +5927,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3738,7 +5940,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3746,15 +5953,25 @@ def validate_and_generate_json(api_data_list):
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -3762,7 +5979,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3770,7 +5992,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3778,7 +6005,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3786,7 +6018,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3794,15 +6031,25 @@ def validate_and_generate_json(api_data_list):
 
  
 
- 
 
  
 
-           
 
  
 
+
  
+
+          
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -3810,7 +6057,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3818,7 +6070,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3826,15 +6083,25 @@ def validate_and_generate_json(api_data_list):
 
  
 
- 
 
  
 
-           
 
  
 
+
  
+
+          
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -3842,7 +6109,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3850,7 +6122,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3858,7 +6135,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3866,7 +6148,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3874,7 +6161,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3882,7 +6174,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3890,7 +6187,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3898,15 +6200,25 @@ def validate_and_generate_json(api_data_list):
 
  
 
- 
 
  
 
-           
 
  
 
+
  
+
+          
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -3914,15 +6226,25 @@ def validate_and_generate_json(api_data_list):
 
  
 
- 
 
  
 
-           
 
  
 
+
  
+
+          
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -3930,7 +6252,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3938,7 +6265,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3946,7 +6278,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3954,7 +6291,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3962,7 +6304,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3970,7 +6317,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3978,7 +6330,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -3986,15 +6343,25 @@ def validate_and_generate_json(api_data_list):
 
  
 
- 
 
  
 
-               
 
  
 
+
  
+
+              
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -4002,7 +6369,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4010,7 +6382,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4018,7 +6395,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4026,7 +6408,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4034,15 +6421,25 @@ def validate_and_generate_json(api_data_list):
 
  
 
- 
 
  
 
-           
 
  
 
+
  
+
+          
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -4050,7 +6447,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4058,7 +6460,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4066,7 +6473,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4074,15 +6486,25 @@ def validate_and_generate_json(api_data_list):
 
  
 
- 
 
  
 
-           
 
  
 
+
  
+
+          
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -4090,7 +6512,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4098,7 +6525,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4106,7 +6538,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4114,7 +6551,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4122,15 +6564,25 @@ def validate_and_generate_json(api_data_list):
 
  
 
- 
 
  
 
-               
 
  
 
+
  
+
+              
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -4138,7 +6590,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4146,15 +6603,25 @@ def validate_and_generate_json(api_data_list):
 
  
 
- 
 
  
 
-               
 
  
 
+
  
+
+              
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -4162,7 +6629,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4170,7 +6642,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4178,7 +6655,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4186,7 +6668,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4194,15 +6681,25 @@ def validate_and_generate_json(api_data_list):
 
  
 
- 
 
  
 
-               
 
  
 
+
  
+
+              
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -4210,7 +6707,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4218,7 +6720,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4226,7 +6733,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4234,7 +6746,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4242,7 +6759,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4250,7 +6772,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4258,15 +6785,25 @@ def validate_and_generate_json(api_data_list):
 
  
 
- 
 
  
 
-               
 
  
 
+
  
+
+              
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -4274,15 +6811,25 @@ def validate_and_generate_json(api_data_list):
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -4290,7 +6837,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4298,7 +6850,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4306,7 +6863,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4314,7 +6876,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4322,15 +6889,24 @@ def validate_and_generate_json(api_data_list):
 
  
 
- 
 
  
 
- 
 
  
 
+
  
+
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -4338,7 +6914,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4346,7 +6927,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4354,7 +6940,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4362,7 +6953,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4370,15 +6966,25 @@ def validate_and_generate_json(api_data_list):
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -4386,7 +6992,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4394,7 +7005,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4402,15 +7018,25 @@ def validate_and_generate_json(api_data_list):
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -4418,7 +7044,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4426,7 +7057,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4434,15 +7070,25 @@ def validate_and_generate_json(api_data_list):
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -4450,7 +7096,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4458,7 +7109,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4466,7 +7122,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4474,7 +7135,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4482,7 +7148,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4490,15 +7161,25 @@ def validate_and_generate_json(api_data_list):
 
  
 
- 
 
  
 
-           
 
  
 
+
  
+
+          
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -4506,7 +7187,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4514,7 +7200,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4522,7 +7213,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4530,15 +7226,25 @@ def validate_and_generate_json(api_data_list):
 
  
 
- 
 
  
 
-           
 
  
 
+
  
+
+          
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -4546,7 +7252,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4554,7 +7265,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4562,7 +7278,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4570,7 +7291,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4578,7 +7304,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4586,15 +7317,25 @@ def validate_and_generate_json(api_data_list):
 
  
 
- 
 
  
 
-                   
 
  
 
+
  
+
+                  
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -4602,7 +7343,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4610,7 +7356,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4618,15 +7369,25 @@ def validate_and_generate_json(api_data_list):
 
  
 
- 
 
  
 
-                   
 
  
 
+
  
+
+                  
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -4634,7 +7395,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4642,7 +7408,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4650,7 +7421,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4658,7 +7434,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4666,7 +7447,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4674,15 +7460,25 @@ def validate_and_generate_json(api_data_list):
 
  
 
- 
 
  
 
-                   
 
  
 
+
  
+
+                  
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -4690,7 +7486,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4698,7 +7499,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4706,7 +7512,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4714,15 +7525,25 @@ def validate_and_generate_json(api_data_list):
 
  
 
- 
 
  
 
-               
 
  
 
+
  
+
+              
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -4730,15 +7551,25 @@ def validate_and_generate_json(api_data_list):
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -4746,7 +7577,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4754,7 +7590,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4762,7 +7603,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4770,15 +7616,25 @@ def validate_and_generate_json(api_data_list):
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -4786,15 +7642,25 @@ def validate_and_generate_json(api_data_list):
 
  
 
- 
 
  
 
-   
 
  
 
+
  
+
+  
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -4802,7 +7668,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4810,7 +7681,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4818,7 +7694,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4826,7 +7707,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4834,7 +7720,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4842,15 +7733,25 @@ def validate_and_generate_json(api_data_list):
 
  
 
- 
 
  
 
-   
 
  
 
+
  
+
+  
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -4858,7 +7759,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4866,7 +7772,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4874,7 +7785,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4882,7 +7798,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4890,7 +7811,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4898,15 +7824,25 @@ def validate_and_generate_json(api_data_list):
 
  
 
- 
 
  
 
-   
 
  
 
+
  
+
+  
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -4914,7 +7850,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4922,15 +7863,24 @@ def validate_and_generate_json(api_data_list):
 
  
 
- 
 
  
 
- 
 
  
 
+
  
+
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -4938,7 +7888,12 @@ def validate_and_generate_json(api_data_list):
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4946,7 +7901,12 @@ def search_api():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4954,7 +7914,12 @@ def search_api():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4962,7 +7927,12 @@ def search_api():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4970,15 +7940,25 @@ def search_api():
 
  
 
- 
 
  
 
-   
 
  
 
+
  
+
+  
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -4986,7 +7966,12 @@ def search_api():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -4994,15 +7979,25 @@ def search_api():
 
  
 
- 
 
  
 
-   
 
  
 
+
  
+
+  
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -5010,15 +8005,25 @@ def search_api():
 
  
 
- 
 
  
 
-   
 
  
 
+
  
+
+  
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -5026,7 +8031,12 @@ def search_api():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5034,7 +8044,12 @@ def search_api():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5042,7 +8057,12 @@ def search_api():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5050,7 +8070,12 @@ def search_api():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5058,7 +8083,12 @@ def search_api():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5066,7 +8096,12 @@ def search_api():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5074,7 +8109,12 @@ def search_api():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5082,7 +8122,12 @@ def search_api():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5090,7 +8135,12 @@ def search_api():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5098,7 +8148,12 @@ def search_api():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5106,15 +8161,24 @@ def search_api():
 
  
 
- 
 
  
 
- 
 
  
 
+
  
+
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -5122,7 +8186,12 @@ def search_api():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5130,7 +8199,12 @@ def generate_json_endpoint():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5138,7 +8212,12 @@ def generate_json_endpoint():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5146,7 +8225,12 @@ def generate_json_endpoint():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5154,15 +8238,25 @@ def generate_json_endpoint():
 
  
 
- 
 
  
 
-   
 
  
 
+
  
+
+  
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -5170,7 +8264,12 @@ def generate_json_endpoint():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5178,15 +8277,25 @@ def generate_json_endpoint():
 
  
 
- 
 
  
 
-   
 
  
 
+
  
+
+  
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -5194,15 +8303,25 @@ def generate_json_endpoint():
 
  
 
- 
 
  
 
-   
 
  
 
+
  
+
+  
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -5210,7 +8329,12 @@ def generate_json_endpoint():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5218,15 +8342,25 @@ def generate_json_endpoint():
 
  
 
- 
 
  
 
-   
 
  
 
+
  
+
+  
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -5234,7 +8368,12 @@ def generate_json_endpoint():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5242,15 +8381,25 @@ def generate_json_endpoint():
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -5258,7 +8407,12 @@ def generate_json_endpoint():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5266,7 +8420,12 @@ def generate_json_endpoint():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5274,7 +8433,12 @@ def generate_json_endpoint():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5282,7 +8446,12 @@ def generate_json_endpoint():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5290,7 +8459,12 @@ def generate_json_endpoint():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5298,15 +8472,24 @@ def generate_json_endpoint():
 
  
 
- 
 
  
 
- 
 
  
 
+
  
+
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -5314,7 +8497,12 @@ def generate_json_endpoint():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5322,7 +8510,12 @@ def validate_json():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5330,7 +8523,12 @@ def validate_json():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5338,7 +8536,12 @@ def validate_json():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5346,23 +8549,38 @@ def validate_json():
 
  
 
- 
 
  
 
-   
 
  
 
- 
 
  
 
-   
+  
 
  
 
+
  
+
+
+ 
+
+
+ 
+
+  
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -5370,7 +8588,12 @@ def validate_json():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5378,15 +8601,25 @@ def validate_json():
 
  
 
- 
 
  
 
-   
 
  
 
+
  
+
+  
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -5394,7 +8627,12 @@ def validate_json():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5402,7 +8640,12 @@ def validate_json():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5410,15 +8653,24 @@ def validate_json():
 
  
 
- 
 
  
 
- 
 
  
 
+
  
+
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -5426,7 +8678,12 @@ def validate_json():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5434,7 +8691,12 @@ def validate_json():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5442,7 +8704,12 @@ def validate_json():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5450,7 +8717,12 @@ def validate_json():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5458,7 +8730,12 @@ def validate_json():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5466,7 +8743,12 @@ def validate_json():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5474,15 +8756,24 @@ def validate_json():
 
  
 
- 
 
  
 
- 
 
  
 
+
  
+
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -5490,15 +8781,24 @@ def validate_json():
 
  
 
- 
 
  
 
- 
 
  
 
+
  
+
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -5506,7 +8806,12 @@ def validate_json():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5514,7 +8819,12 @@ def validate_json():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5522,7 +8832,12 @@ def validate_json():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5530,7 +8845,12 @@ def validate_json():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5538,15 +8858,24 @@ def validate_json():
 
  
 
- 
 
  
 
- 
 
  
 
+
  
+
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -5554,7 +8883,12 @@ def validate_json():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5562,7 +8896,12 @@ def validate_json():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5570,7 +8909,12 @@ def validate_json():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5578,7 +8922,12 @@ def validate_json():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5586,7 +8935,12 @@ def validate_json():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5594,7 +8948,12 @@ def validate_json():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5602,7 +8961,12 @@ def validate_json():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5610,7 +8974,12 @@ def validate_json():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5618,7 +8987,12 @@ def validate_json():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5626,7 +9000,12 @@ def validate_json():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5634,7 +9013,12 @@ def validate_json():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5642,15 +9026,24 @@ def validate_json():
 
  
 
- 
 
  
 
- 
 
  
 
+
  
+
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -5658,7 +9051,12 @@ def validate_json():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5666,7 +9064,12 @@ def validate_json():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5674,7 +9077,12 @@ def validate_json():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5682,7 +9090,12 @@ def validate_json():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5690,7 +9103,12 @@ def validate_json():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5698,7 +9116,12 @@ def validate_json():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5706,7 +9129,12 @@ def validate_json():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5714,15 +9142,24 @@ def validate_json():
 
  
 
- 
 
  
 
- 
 
  
 
+
  
+
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -5730,7 +9167,12 @@ def validate_json():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5738,7 +9180,12 @@ def validate_json():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5746,15 +9193,24 @@ def validate_json():
 
  
 
- 
 
  
 
- 
 
  
 
+
  
+
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -5762,7 +9218,12 @@ def validate_json():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5770,7 +9231,12 @@ def validate_json():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5778,7 +9244,12 @@ def validate_json():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5786,7 +9257,12 @@ def validate_json():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5794,7 +9270,12 @@ def validate_json():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5802,7 +9283,12 @@ def validate_json():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5810,7 +9296,12 @@ def validate_json():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5818,7 +9309,12 @@ def validate_json():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5826,7 +9322,12 @@ def validate_json():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5834,7 +9335,12 @@ def validate_json():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5842,7 +9348,12 @@ def validate_json():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5850,7 +9361,12 @@ def validate_json():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5858,15 +9374,25 @@ def validate_json():
 
  
 
- 
 
  
 
-           
 
  
 
+
  
+
+          
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -5874,7 +9400,12 @@ def validate_json():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5882,7 +9413,12 @@ def validate_json():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5890,7 +9426,12 @@ def validate_json():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5898,7 +9439,12 @@ def validate_json():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5906,7 +9452,12 @@ def validate_json():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5914,23 +9465,35 @@ def validate_json():
 
  
 
- 
 
  
 
- 
 
  
 
+
  
+
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
 @app.route('/api/create-pr', methods=['POST'])
 
- 
 
  
+
+
+ 
+
 
  
 
@@ -5938,7 +9501,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5946,7 +9514,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5954,7 +9527,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5962,7 +9540,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5970,7 +9553,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5978,7 +9566,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -5986,15 +9579,24 @@ def create_pr():
 
  
 
- 
 
  
 
- 
 
  
 
+
  
+
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -6002,7 +9604,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6010,7 +9617,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6018,7 +9630,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6026,15 +9643,25 @@ def create_pr():
 
  
 
- 
 
  
 
-   
 
  
 
+
  
+
+  
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -6042,7 +9669,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6050,7 +9682,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6058,7 +9695,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6066,7 +9708,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6074,7 +9721,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6082,15 +9734,25 @@ def create_pr():
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -6098,7 +9760,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6106,7 +9773,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6114,7 +9786,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6122,7 +9799,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6130,15 +9812,25 @@ def create_pr():
 
  
 
- 
 
  
 
-            'Accept': 'application/vnd.github+json',
 
  
 
+
  
+
+            'Accept': 'application/vnd.github.v3+json',
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -6146,7 +9838,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6154,7 +9851,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6162,7 +9864,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6170,15 +9877,24 @@ def create_pr():
 
  
 
- 
 
  
 
- 
 
  
 
+
  
+
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -6186,7 +9902,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6194,7 +9915,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6202,7 +9928,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6210,7 +9941,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6218,7 +9954,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6226,7 +9967,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6234,7 +9980,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6242,7 +9993,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6250,7 +10006,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6258,7 +10019,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6266,7 +10032,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6274,15 +10045,24 @@ def create_pr():
 
  
 
- 
 
  
 
- 
 
  
 
+
  
+
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -6290,7 +10070,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6298,7 +10083,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6306,7 +10096,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6314,7 +10109,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6322,7 +10122,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6330,15 +10135,24 @@ def create_pr():
 
  
 
- 
 
  
 
- 
 
  
 
+
  
+
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -6346,7 +10160,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6354,7 +10173,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6362,7 +10186,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6370,7 +10199,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6378,15 +10212,25 @@ def create_pr():
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -6394,7 +10238,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6402,7 +10251,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6410,7 +10264,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6418,7 +10277,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6426,7 +10290,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6434,7 +10303,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6442,7 +10316,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6450,7 +10329,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6458,7 +10342,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6466,7 +10355,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6474,7 +10368,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6482,7 +10381,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6490,7 +10394,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6498,7 +10407,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6506,7 +10420,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6514,15 +10433,24 @@ def create_pr():
 
  
 
- 
 
  
 
- 
 
  
 
+
  
+
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -6530,7 +10458,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6538,7 +10471,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6546,7 +10484,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6554,7 +10497,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6562,7 +10510,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6570,7 +10523,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6578,7 +10536,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6586,7 +10549,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6594,7 +10562,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6602,7 +10575,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6610,7 +10588,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6618,7 +10601,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6626,7 +10614,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6634,7 +10627,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6642,15 +10640,25 @@ def create_pr():
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -6658,7 +10666,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6666,7 +10679,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6674,7 +10692,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6682,7 +10705,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6690,7 +10718,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6698,7 +10731,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6706,7 +10744,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6714,7 +10757,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6722,7 +10770,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6730,7 +10783,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6738,7 +10796,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6746,7 +10809,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6754,7 +10822,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6762,7 +10835,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6770,23 +10848,39 @@ def create_pr():
 
  
 
- 
 
  
 
-       
 
  
 
- 
 
  
 
-        # Get API data to determine EMI ID for branch naming
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        # Get API data to determine EIM ID for branch naming
+
+ 
+
 
  
 
         api_data_list = find_api_by_repo(repo_url)
+
+ 
+
 
  
 
@@ -6794,7 +10888,13 @@ def create_pr():
 
  
 
-            # Use first API's EMI ID for branch naming
+
+ 
+
+            # Use first API's EIM ID for branch naming
+
+ 
+
 
  
 
@@ -6802,87 +10902,174 @@ def create_pr():
 
  
 
-            emi_id = first_api.get('emi_id', 'unknown-emi')
 
  
 
-            # Clean EMI ID for branch naming (remove special chars, lowercase)
+            eim_id = first_api.get('eim_id', 'unknown-eim')
 
  
 
-            clean_emi_id = re.sub(r'[^a-zA-Z0-9-]', '', str(emi_id).lower())
 
  
 
-            branch_name = f'apix_{clean_emi_id}'
-  
-            print(f"Using EMI ID: {emi_id} -> branch: {branch_name}")
+            # Clean EIM ID for branch naming (remove special chars, lowercase)
+
+ 
+
+
+ 
+
+            clean_eim_id = re.sub(r'[^a-zA-Z0-9-]', '', str(eim_id).lower())
+
+ 
+
+
+ 
+
+            branch_name = f'apix_{clean_eim_id}'
+
+ 
+
+            print(f"Using EIM ID: {eim_id} -> branch: {branch_name}")
+
+           
+
+            # Special validation for CIS repo
+
+            if str(eim_id) == CIS_EIM_ID:
+
+                print(f"CIS repo detected (EIM ID: {eim_id}), will add CIS JIRA ID to commit message")
+
+ 
+
 
  
 
         else:
-  
+
+ 
+
             # Fallback to timestamp if no API data found
-  
+
+ 
+
             branch_name = f'apix-metadata-{datetime.now().strftime("%Y%m%d-%H%M%S")}'
-  
+
+ 
+
             print(f"No API data found, using timestamp branch: {branch_name}")
 
+ 
+
         # Create a new branch
+
         # First, check if the branch already exists so we can reuse it
+
         existing_branch_url = f'{GITHUB_API_BASE}/repos/{owner}/{repo}/git/refs/heads/{branch_name}'
+
         existing_branch_response = requests.get(
+
             existing_branch_url,
+
             headers=headers,
+
             proxies=PROXIES if PROXIES else None,
+
             verify=SSL_VERIFY
+
         )
 
+ 
+
         if existing_branch_response.status_code == 200:
+
             # Branch already exists – reuse it instead of trying to create again
+
             print(f"Branch already exists, reusing: {branch_name}")
+
         else:
+
             # Only attempt to create the branch if it does not already exist
+
             create_branch_url = f'{GITHUB_API_BASE}/repos/{owner}/{repo}/git/refs'
+
+ 
 
             branch_data = {
 
+ 
+
                 'ref': f'refs/heads/{branch_name}',
+
+ 
 
                 'sha': base_sha
 
+ 
+
             }
+
+ 
 
             print(f"Creating branch: {branch_name}")
 
+ 
+
             branch_response = requests.post(create_branch_url, json=branch_data, headers=headers, proxies=PROXIES if PROXIES else None, verify=SSL_VERIFY)
+
+ 
 
             branch_json, branch_err = safe_json(branch_response, 'branch_create')
 
+ 
+
             if branch_err:
+
+ 
 
                 return jsonify(branch_err), 502
 
+ 
+
             if branch_response.status_code not in (200, 201):
+
+ 
 
                 error_msg = branch_json.get('message', 'Unknown error') if branch_json else 'Unknown'
 
+ 
+
                 # If GitHub reports that the reference already exists, treat it as a non-fatal condition
+
                 if branch_response.status_code == 422 and 'Reference already exists' in str(error_msg):
+
                     print(f"Branch {branch_name} already exists according to GitHub; continuing with existing branch")
+
                 else:
+
                     print(f"Failed to create branch: {branch_response.status_code} - {error_msg}")
+
+ 
 
                     return jsonify({'error': 'Failed to create branch', 'status_code': branch_response.status_code, 'details': branch_json}), 400
 
+ 
+
             print(f"Branch created successfully: {branch_name}")
- 
 
-       
 
  
 
+      
+
  
+
+
+ 
+
+
+ 
+
 
  
 
@@ -6890,7 +11077,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6898,7 +11090,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6906,15 +11103,25 @@ def create_pr():
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -6922,7 +11129,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6930,7 +11142,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6938,15 +11155,46 @@ def create_pr():
 
  
 
- 
 
  
 
- 
 
  
 
+
  
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        # Create commit message with CIS JIRA ID if needed
+
+        commit_message = 'Add APIX metadata JSON file for API audit'
+
+       
+
+        # Check if this is CIS repo and add JIRA ID
+
+        if api_data_list:
+
+            first_api = api_data_list[0] if isinstance(api_data_list, list) else api_data_list
+
+            eim_id = first_api.get('eim_id', 'unknown-eim')
+
+            if str(eim_id) == CIS_EIM_ID:
+
+                commit_message = f'{CIS_JIRA_ID}: Add APIX metadata JSON file for API audit'
+
+                print(f"Using CIS JIRA ID in commit message for EIM ID: {eim_id}")
 
  
 
@@ -6954,15 +11202,22 @@ def create_pr():
 
  
 
- 
 
  
 
-            'message': 'Add APIX metadata JSON file for API audit',
 
  
 
+
  
+
+            'message': commit_message,
+
+ 
+
+
+ 
+
 
  
 
@@ -6970,7 +11225,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6978,7 +11238,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6986,7 +11251,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -6994,15 +11264,25 @@ def create_pr():
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -7010,7 +11290,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7018,7 +11303,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7026,7 +11316,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7034,7 +11329,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7042,7 +11342,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7050,7 +11355,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7058,7 +11368,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7066,15 +11381,25 @@ def create_pr():
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -7082,7 +11407,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7090,7 +11420,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7098,7 +11433,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7106,7 +11446,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7114,7 +11459,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7122,7 +11472,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7130,7 +11485,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7138,15 +11498,25 @@ def create_pr():
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -7154,15 +11524,25 @@ def create_pr():
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -7170,7 +11550,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7178,7 +11563,28 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
+
+ 
+
+        # Create PR title with CIS JIRA ID if needed
+
+        pr_title = 'Add APIX metadata JSON file'
+
+        if api_data_list:
+
+            first_api = api_data_list[0] if isinstance(api_data_list, list) else api_data_list
+
+            eim_id = first_api.get('eim_id', 'unknown-eim')
+
+            if str(eim_id) == CIS_EIM_ID:
+
+                pr_title = f'{CIS_JIRA_ID}: Add APIX metadata JSON file'
 
  
 
@@ -7186,15 +11592,22 @@ def create_pr():
 
  
 
- 
 
  
 
-            'title': 'Add APIX metadata JSON file',
 
  
 
+
  
+
+            'title': pr_title,
+
+ 
+
+
+ 
+
 
  
 
@@ -7202,7 +11615,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7210,7 +11628,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7218,7 +11641,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7226,7 +11654,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7234,7 +11667,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7242,7 +11680,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7250,7 +11693,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7258,7 +11706,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7266,7 +11719,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7274,7 +11732,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7282,7 +11745,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7290,7 +11758,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7298,7 +11771,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7306,7 +11784,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7314,7 +11797,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7322,7 +11810,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7330,7 +11823,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7338,7 +11836,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7346,7 +11849,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7354,7 +11862,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7362,7 +11875,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7370,7 +11888,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7378,7 +11901,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7386,15 +11914,25 @@ def create_pr():
 
  
 
- 
 
  
 
-           
 
  
 
+
  
+
+          
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -7402,7 +11940,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7412,13 +11955,24 @@ def create_pr():
 
  
 
- 
 
  
 
- 
 
  
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -7426,7 +11980,12 @@ def create_pr():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7434,7 +11993,12 @@ def upload_excel():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7442,7 +12006,12 @@ def upload_excel():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7450,7 +12019,12 @@ def upload_excel():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7458,7 +12032,12 @@ def upload_excel():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7466,7 +12045,12 @@ def upload_excel():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7474,7 +12058,12 @@ def upload_excel():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7482,7 +12071,12 @@ def upload_excel():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7490,15 +12084,25 @@ def upload_excel():
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -7506,15 +12110,25 @@ def upload_excel():
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -7522,7 +12136,12 @@ def upload_excel():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7530,15 +12149,25 @@ def upload_excel():
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -7546,7 +12175,12 @@ def upload_excel():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7554,15 +12188,25 @@ def upload_excel():
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -7570,7 +12214,12 @@ def upload_excel():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7578,7 +12227,12 @@ def upload_excel():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7586,15 +12240,25 @@ def upload_excel():
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -7602,15 +12266,25 @@ def upload_excel():
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -7618,7 +12292,12 @@ def upload_excel():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7626,15 +12305,25 @@ def upload_excel():
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -7642,7 +12331,12 @@ def upload_excel():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7650,15 +12344,25 @@ def upload_excel():
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -7666,7 +12370,12 @@ def upload_excel():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7674,15 +12383,25 @@ def upload_excel():
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -7690,7 +12409,12 @@ def upload_excel():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7698,7 +12422,12 @@ def upload_excel():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7706,7 +12435,12 @@ def upload_excel():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7714,7 +12448,12 @@ def upload_excel():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7722,7 +12461,12 @@ def upload_excel():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7730,15 +12474,25 @@ def upload_excel():
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -7746,7 +12500,12 @@ def upload_excel():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7754,7 +12513,12 @@ def upload_excel():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7762,7 +12526,12 @@ def upload_excel():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7770,7 +12539,12 @@ def upload_excel():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7778,15 +12552,25 @@ def upload_excel():
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -7794,15 +12578,25 @@ def upload_excel():
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -7810,7 +12604,12 @@ def upload_excel():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7818,7 +12617,12 @@ def upload_excel():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7826,7 +12630,12 @@ def upload_excel():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7834,7 +12643,12 @@ def upload_excel():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7842,15 +12656,24 @@ def upload_excel():
 
  
 
- 
 
  
 
- 
 
  
 
+
  
+
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -7858,7 +12681,12 @@ def upload_excel():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7866,7 +12694,12 @@ def generate_json_from_upload():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7874,7 +12707,12 @@ def generate_json_from_upload():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7882,7 +12720,12 @@ def generate_json_from_upload():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7890,7 +12733,12 @@ def generate_json_from_upload():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7898,7 +12746,12 @@ def generate_json_from_upload():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7906,7 +12759,12 @@ def generate_json_from_upload():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7914,7 +12772,12 @@ def generate_json_from_upload():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7922,7 +12785,12 @@ def generate_json_from_upload():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7930,15 +12798,25 @@ def generate_json_from_upload():
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -7946,7 +12824,12 @@ def generate_json_from_upload():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7954,15 +12837,25 @@ def generate_json_from_upload():
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -7970,7 +12863,12 @@ def generate_json_from_upload():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -7978,15 +12876,25 @@ def generate_json_from_upload():
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -7994,7 +12902,12 @@ def generate_json_from_upload():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -8002,7 +12915,12 @@ def generate_json_from_upload():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -8010,7 +12928,12 @@ def generate_json_from_upload():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -8018,7 +12941,12 @@ def generate_json_from_upload():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -8026,7 +12954,12 @@ def generate_json_from_upload():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -8034,15 +12967,25 @@ def generate_json_from_upload():
 
  
 
- 
 
  
 
-       
 
  
 
+
  
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -8050,7 +12993,12 @@ def generate_json_from_upload():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -8058,7 +13006,12 @@ def generate_json_from_upload():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -8066,7 +13019,12 @@ def generate_json_from_upload():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -8074,7 +13032,12 @@ def generate_json_from_upload():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -8082,7 +13045,12 @@ def generate_json_from_upload():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -8090,7 +13058,12 @@ def generate_json_from_upload():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -8098,7 +13071,12 @@ def generate_json_from_upload():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -8106,467 +13084,932 @@ def generate_json_from_upload():
 
  
 
- 
 
  
 
- 
 
  
 
+
  
+
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
 @app.route('/api/check-pr-status', methods=['POST'])
 
+ 
+
 def check_pr_status():
+
+ 
 
     """Check if PR for a repository has been merged"""
 
+ 
+
     data = request.json
+
+ 
 
     repo_url = data.get('repository_url', '')
 
-   
+ 
+
+  
+
+ 
 
     if not repo_url:
 
+ 
+
         return jsonify({'error': 'Repository URL is required'}), 400
 
-   
+ 
+
+  
+
+ 
 
     # GitHub token from environment
 
+ 
+
     github_token = os.environ.get('SERVICE_GITHUB_TOKEN') or os.environ.get('GITHUB_TOKEN') or ''
 
-   
+ 
+
+  
+
+ 
 
     if not github_token:
 
+ 
+
         return jsonify({'error': 'Server is not configured with GitHub token'}), 500
 
-   
+ 
+
+  
+
+ 
 
     try:
 
+ 
+
         # Parse repository owner and name from URL
+
+ 
 
         parts = repo_url.rstrip('/').split('/')
 
+ 
+
         owner = parts[-2]
+
+ 
 
         repo = parts[-1].replace('.git', '')
 
-       
+ 
 
-        # Get API data to determine EMI ID for branch naming
+      
+
+ 
+
+        # Get API data to determine EIM ID for branch naming
+
+ 
 
         api_data_list = find_api_by_repo(repo_url)
 
+ 
+
         if not api_data_list:
+
+ 
 
             return jsonify({'error': 'No API data found for this repository'}), 404
 
-       
+ 
 
-        # Use first API's EMI ID for branch naming (same logic as create_pr)
+      
+
+ 
+
+        # Use first API's EIM ID for branch naming (same logic as create_pr)
+
+ 
 
         first_api = api_data_list[0] if isinstance(api_data_list, list) else api_data_list
 
-        emi_id = first_api.get('emi_id', 'unknown-emi')
+ 
 
-        clean_emi_id = re.sub(r'[^a-zA-Z0-9-]', '', str(emi_id).lower())
+        eim_id = first_api.get('eim_id', 'unknown-eim')
 
-        branch_name = f'apix_{clean_emi_id}'
+ 
 
-       
+        clean_eim_id = re.sub(r'[^a-zA-Z0-9-]', '', str(eim_id).lower())
+
+ 
+
+        branch_name = f'apix_{clean_eim_id}'
+
+ 
+
+      
+
+ 
 
         # Setup headers
 
+ 
+
         auth_header = f'Bearer {github_token}' if github_token.startswith('ghp_') or github_token.startswith('github_pat_') else f'token {github_token}'
+
+ 
 
         headers = {
 
+ 
+
             'Authorization': auth_header,
+
+ 
 
             'Accept': 'application/vnd.github+json',
 
+ 
+
             'User-Agent': 'apix-automation-tool',
+
+ 
 
             'X-GitHub-Api-Version': '2022-11-28'
 
+ 
+
         }
+
+ 
+
+      
+
+ 
+
+        # First, check if the branch actually exists in the repository
+
+        branch_check_url = f'{GITHUB_API_BASE}/repos/{owner}/{repo}/git/refs/heads/{branch_name}'
+
+        branch_response = requests.get(
+
+            branch_check_url,
+
+            headers=headers,
+
+            proxies=PROXIES if PROXIES else None,
+
+            verify=SSL_VERIFY
+
+        )
 
        
 
-        # First, check if the branch actually exists in the repository
-        branch_check_url = f'{GITHUB_API_BASE}/repos/{owner}/{repo}/git/refs/heads/{branch_name}'
-        branch_response = requests.get(
-            branch_check_url,
-            headers=headers,
-            proxies=PROXIES if PROXIES else None,
-            verify=SSL_VERIFY
-        )
-        
         branch_exists = branch_response.status_code == 200
+
         print(f"Branch {branch_name} exists: {branch_exists}")
-        
+
+       
+
         # If branch doesn't exist, treat as no PR regardless of PR history
+
         if not branch_exists:
+
             return jsonify({
+
                 'pr_exists': False,
+
                 'is_merged': False,
+
                 'branch_exists': False,
-                'message': 'No branch found. Branch will be created when you make a PR.',
+
+                'is_approved': False,
+
+                'message': 'No active branch found. Please create a new PR.',
+
                 'can_publish': False
+
             })
+
+ 
 
         # Search for PRs from our branch
 
+ 
+
         pr_search_url = f'{GITHUB_API_BASE}/repos/{owner}/{repo}/pulls'
+
+ 
 
         pr_params = {
 
+ 
+
             'head': f'{owner}:{branch_name}',
+
+ 
 
             'state': 'all'  # Include both open and closed PRs
 
+ 
+
         }
 
-       
+ 
+
+      
+
+ 
 
         pr_response = requests.get(
 
+ 
+
             pr_search_url,
+
+ 
 
             headers=headers,
 
+ 
+
             params=pr_params,
+
+ 
 
             proxies=PROXIES if PROXIES else None,
 
+ 
+
             verify=SSL_VERIFY
+
+ 
 
         )
 
-       
+ 
+
+      
+
+ 
 
         if pr_response.status_code != 200:
 
+ 
+
             return jsonify({
+
+ 
 
                 'error': 'Failed to fetch PR information',
 
+ 
+
                 'status_code': pr_response.status_code
+
+ 
 
             }), 400
 
-       
+ 
+
+      
+
+ 
 
         prs = pr_response.json()
 
-       
+ 
+
+      
+
+ 
 
         if not prs:
 
+ 
+
             return jsonify({
+
+ 
 
                 'pr_exists': False,
 
+ 
+
                 'is_merged': False,
+
+ 
 
                 'branch_exists': True,
 
+ 
+
+                'is_approved': False,
+
+ 
+
                 'message': 'No PR found for this repository. Please create a PR first.',
+
+ 
 
                 'can_publish': False
 
+ 
+
             })
 
-       
+ 
+
+      
+
+ 
 
         # Get the most recent PR
 
+ 
+
         latest_pr = prs[0]
+
+ 
 
         pr_number = latest_pr['number']
 
-       
+ 
+
+      
+
+ 
 
         # For closed PRs, we need to check the specific PR details to get accurate merge status
 
+ 
+
         # GitHub's PR list API doesn't always include the 'merged' field accurately
+
+ 
 
         if latest_pr['state'] == 'closed':
 
+ 
+
             pr_detail_url = f'{GITHUB_API_BASE}/repos/{owner}/{repo}/pulls/{pr_number}'
+
+ 
 
             print(f"Checking detailed PR info: {pr_detail_url}")
 
-           
+ 
+
+          
+
+ 
 
             pr_detail_response = requests.get(
 
+ 
+
                 pr_detail_url,
+
+ 
 
                 headers=headers,
 
+ 
+
                 proxies=PROXIES if PROXIES else None,
+
+ 
 
                 verify=SSL_VERIFY
 
+ 
+
             )
 
-           
+ 
+
+          
+
+ 
 
             if pr_detail_response.status_code == 200:
 
+ 
+
                 pr_details = pr_detail_response.json()
+
+ 
 
                 is_merged = pr_details.get('merged', False)
 
+ 
+
                 merged_at = pr_details.get('merged_at')
+
+ 
 
                 print(f"PR #{pr_number} detailed check - Merged: {is_merged}, Merged at: {merged_at}")
 
+ 
+
             else:
+
+ 
 
                 print(f"Failed to get PR details, using list data. Status: {pr_detail_response.status_code}")
 
+ 
+
                 # Fallback to the list response data
+
+ 
 
                 is_merged = latest_pr.get('merged', False)
 
+ 
+
                 merged_at = latest_pr.get('merged_at')
+
+ 
 
         else:
 
+ 
+
             is_merged = latest_pr.get('merged', False)
+
+ 
 
             merged_at = latest_pr.get('merged_at')
 
-       
+ 
+
+      
+
+ 
 
         pr_status = {
 
+ 
+
             'pr_exists': True,
+
+ 
 
             'pr_number': pr_number,
 
+ 
+
             'pr_url': latest_pr['html_url'],
+
+ 
 
             'pr_state': latest_pr['state'],
 
+ 
+
             'is_merged': is_merged,
+
+ 
 
             'merged_at': merged_at,
 
+ 
+
             'branch_exists': True,
+
+ 
 
             'can_publish': False,
 
+ 
+
             'message': ''
+
+ 
 
         }
 
-       
+ 
+
+      
+
+ 
 
         print(f"Final PR status - PR #{pr_number}, State: {latest_pr['state']}, Merged: {is_merged}")
 
-       
+ 
+
+      
+
+ 
 
         if is_merged:
 
+ 
+
             pr_status['can_publish'] = True
+
+ 
 
             pr_status['message'] = f'✅ PR #{pr_number} has been merged! You can now publish.'
 
+ 
+
         elif latest_pr['state'] == 'open':
+
+ 
 
             pr_status['message'] = f'⏳ PR #{pr_number} is still open. Waiting for approval and merge.'
 
+ 
+
         elif latest_pr['state'] == 'closed' and not is_merged:
+
+ 
 
             pr_status['message'] = f'❌ PR #{pr_number} was closed without merging. Please create a new PR.'
 
-       
+ 
+
+      
+
+ 
 
         return jsonify(pr_status)
 
-       
+ 
+
+      
+
+ 
 
     except Exception as e:
+
+ 
 
         return jsonify({'error': str(e)}), 500
 
  
 
+
+ 
+
 @app.route('/api/publish', methods=['POST'])
+
+ 
 
 def publish_api():
 
+ 
+
     """Publish API metadata (placeholder for actual publish logic)"""
+
+ 
 
     data = request.json
 
+ 
+
     repo_url = data.get('repository_url', '')
 
-   
+ 
+
+  
+
+ 
 
     if not repo_url:
 
+ 
+
         return jsonify({'error': 'Repository URL is required'}), 400
 
-   
+ 
+
+  
+
+ 
 
     try:
 
+ 
+
         # First check if PR is merged by calling the check function directly
+
+ 
 
         # We need to create a mock request object for the check function
 
+ 
+
         from flask import Flask
+
+ 
 
         with app.test_request_context(json={'repository_url': repo_url}):
 
+ 
+
             pr_status_response = check_pr_status()
+
+ 
 
             if isinstance(pr_status_response, tuple):
 
+ 
+
                 pr_status_data = pr_status_response[0].get_json()
+
+ 
 
             else:
 
+ 
+
                 pr_status_data = pr_status_response.get_json()
 
-       
+ 
+
+      
+
+ 
 
         if not pr_status_data.get('can_publish', False):
 
+ 
+
             return jsonify({
+
+ 
 
                 'error': 'Cannot publish: PR not merged yet',
 
+ 
+
                 'message': pr_status_data.get('message', 'PR status unknown')
+
+ 
 
             }), 400
 
-       
+ 
+
+      
+
+ 
 
         # Get API data
 
+ 
+
         api_data_list = find_api_by_repo(repo_url)
+
+ 
 
         if not api_data_list:
 
+ 
+
             return jsonify({'error': 'No API data found for this repository'}), 404
 
-       
+ 
+
+      
+
+ 
 
         # Generate JSON content for publishing
 
+ 
+
         json_content = validate_and_generate_json(api_data_list)
 
-       
+ 
+
+      
+
+ 
 
         # Call the actual APIX publish API
 
+ 
+
         publish_url = 'https://dev.apix.uk.hsbc/api/v1/publish/apis'
 
-       
+ 
+
+      
+
+ 
 
         headers = {
 
+ 
+
             'Content-Type': 'application/json',
+
+ 
 
             'Accept': 'application/json',
 
+ 
+
             'Invocation-Source': 'CI_ABC',
+
+ 
 
             'Authorization': os.environ.get('APIX_VALIDATION_TOKEN', 'REPLACE_ME')
 
+ 
+
         }
 
-       
+ 
+
+      
+
+ 
 
         print(f"Publishing API metadata to: {publish_url}")
 
+ 
+
         print(f"Repository: {repo_url}")
+
+ 
 
         print(f"API count: {len(api_data_list) if isinstance(api_data_list, list) else 1}")
 
-       
+ 
+
+      
+
+ 
 
         # Parse JSON content for the API call
 
+ 
+
         try:
+
+ 
 
             json_data = json.loads(json_content) if isinstance(json_content, str) else json_content
 
+ 
+
         except json.JSONDecodeError as je:
+
+ 
 
             return jsonify({'error': 'Generated JSON content is invalid', 'detail': str(je)}), 500
 
-       
+ 
+
+      
+
+ 
 
         # Make the publish API call
 
+ 
+
         response = requests.post(
+
+ 
 
             publish_url,
 
+ 
+
             json=json_data,
+
+ 
 
             headers=headers,
 
+ 
+
             proxies=PROXIES if PROXIES else None,
+
+ 
 
             verify=SSL_VERIFY,
 
+ 
+
             timeout=30
+
+ 
 
         )
 
-       
+ 
+
+      
+
+ 
 
         if response.status_code == 200:
 
+ 
+
             return jsonify({
+
+ 
 
                 'success': True,
 
+ 
+
                 'message': '🎉 API metadata published successfully!',
+
+ 
 
                 'repository_url': repo_url,
 
+ 
+
                 'published_apis': len(api_data_list) if isinstance(api_data_list, list) else 1,
+
+ 
 
                 'timestamp': datetime.utcnow().isoformat() + 'Z',
 
+ 
+
                 'publish_response': response.json() if response.text else {}
+
+ 
 
             })
 
+ 
+
         else:
+
+ 
 
             error_details = response.json() if response.text else {'error': response.text}
 
+ 
+
             return jsonify({
+
+ 
 
                 'error': 'Failed to publish API metadata',
 
+ 
+
                 'status_code': response.status_code,
+
+ 
 
                 'details': error_details
 
+ 
+
             }), 400
 
-       
+ 
+
+      
+
+ 
 
     except Exception as e:
 
+ 
+
         return jsonify({'error': str(e)}), 500
+
+ 
+
 
  
 
@@ -8574,7 +14017,12 @@ def publish_api():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -8582,7 +14030,12 @@ def health():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -8590,7 +14043,12 @@ def health():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -8598,15 +14056,24 @@ def health():
 
  
 
- 
 
  
 
- 
 
  
 
+
  
+
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -8614,7 +14081,12 @@ def health():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -8622,7 +14094,12 @@ def ping():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -8630,7 +14107,12 @@ def ping():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -8638,15 +14120,24 @@ def ping():
 
  
 
- 
 
  
 
- 
 
  
 
+
  
+
+
+ 
+
+
+ 
+
+
+ 
+
 
  
 
@@ -8654,7 +14145,12 @@ def ping():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -8662,7 +14158,12 @@ def echo():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -8670,7 +14171,12 @@ def echo():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -8678,7 +14184,12 @@ def echo():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -8686,7 +14197,12 @@ def echo():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -8694,7 +14210,12 @@ def echo():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -8702,7 +14223,12 @@ def echo():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -8710,7 +14236,12 @@ def echo():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -8718,7 +14249,12 @@ def echo():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -8726,7 +14262,12 @@ def echo():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -8734,7 +14275,12 @@ def echo():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -8742,7 +14288,12 @@ def echo():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -8750,7 +14301,12 @@ def echo():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -8758,7 +14314,12 @@ def echo():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -8766,7 +14327,12 @@ def echo():
 
  
 
+
  
+
+
+ 
+
 
  
 
@@ -8774,15 +14340,12 @@ def echo():
 
  
 
- 
 
  
 
- 
 
  
 
- 
 
  
 
@@ -8790,8 +14353,7 @@ if __name__ == '__main__':
 
  
 
- 
 
  
 
-    app.run(debug=True, port=5001, host='127.0.0.1')
+    app.run(host='0.0.0.0', debug=True, port=5001)
