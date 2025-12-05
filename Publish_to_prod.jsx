@@ -119,21 +119,32 @@ def preview_metadata(metaapix_data):
     """Display a preview of the metadata"""
     print("    📄 Metadata Preview:")
     
+    # Handle nested structure - check if data is inside apixMetadata.list
+    data = metaapix_data
+    if 'apixMetadata' in metaapix_data and 'list' in metaapix_data['apixMetadata']:
+        if isinstance(metaapix_data['apixMetadata']['list'], list) and len(metaapix_data['apixMetadata']['list']) > 0:
+            data = metaapix_data['apixMetadata']['list'][0]
+    
     # Show key fields
-    if 'api_technical_name' in metaapix_data:
-        print(f"       API Name: {metaapix_data['api_technical_name']}")
+    if 'apiTechnicalName' in data:
+        print(f"       Technical Name: {data.get('apiTechnicalName', 'N/A')}")
     
-    if 'version' in metaapix_data:
-        print(f"       Version: {metaapix_data['version']}")
+    if 'version' in data:
+        print(f"       Version: {data.get('version', 'N/A')}")
     
-    if 'lifecycle_status' in metaapix_data:
-        print(f"       Status: {metaapix_data['lifecycle_status']}")
+    if 'platform' in data:
+        platform_info = data['platform']
+        provider = platform_info.get('provider', 'N/A') if isinstance(platform_info, dict) else platform_info
+        technology = platform_info.get('technology', 'N/A') if isinstance(platform_info, dict) else 'N/A'
+        print(f"       Platform: {provider}")
+        if technology != 'N/A':
+            print(f"       Technology: {technology}")
     
-    if 'platform' in metaapix_data:
-        print(f"       Platform: {metaapix_data['platform']}")
+    if 'team' in data:
+        print(f"       Provider Team: {data.get('team', 'N/A')}")
     
     # Show total number of fields
-    print(f"       Total Fields: {len(metaapix_data)}")
+    print(f"       Total Fields: {len(data)}")
 
 
 def publish_to_production(metaapix_data, repo_url, eim_id, apix_token):
@@ -244,11 +255,18 @@ def preview_all_apis(repos, github_token, eim_id):
         metaapix_data = fetch_metaapix_from_repo(repo_url, github_token, silent=True)
         
         if metaapix_data:
-            api_name = metaapix_data.get('api_technical_name', 'N/A')
-            version = metaapix_data.get('version', 'N/A')
-            status = metaapix_data.get('lifecycle_status', 'N/A')
+            # Handle nested structure
+            data = metaapix_data
+            if 'apixMetadata' in metaapix_data and 'list' in metaapix_data['apixMetadata']:
+                if isinstance(metaapix_data['apixMetadata']['list'], list) and len(metaapix_data['apixMetadata']['list']) > 0:
+                    data = metaapix_data['apixMetadata']['list'][0]
             
-            print(f"    ✅ API: {api_name} | Version: {version} | Status: {status}")
+            api_name = data.get('apiTechnicalName', 'N/A')
+            version = data.get('version', 'N/A')
+            platform = data.get('platform', {})
+            platform_provider = platform.get('provider', 'N/A') if isinstance(platform, dict) else platform
+            
+            print(f"    ✅ API: {api_name} | Version: {version} | Platform: {platform_provider}")
             api_previews.append({
                 'repo': repo_url,
                 'data': metaapix_data,
