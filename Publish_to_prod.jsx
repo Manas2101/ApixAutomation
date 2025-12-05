@@ -115,7 +115,7 @@ def fetch_metaapix_from_repo(repo_url, github_token, branch='main', silent=False
         return None
 
 
-def preview_metadata(metaapix_data):
+def preview_metadata(metaapix_data, show_full_json=False):
     """Display a preview of the metadata"""
     print("    📄 Metadata Preview:")
     
@@ -125,9 +125,18 @@ def preview_metadata(metaapix_data):
         if isinstance(metaapix_data['apixMetadata']['list'], list) and len(metaapix_data['apixMetadata']['list']) > 0:
             data = metaapix_data['apixMetadata']['list'][0]
     
+    # Show full JSON if requested
+    if show_full_json:
+        print("    📦 Full JSON Payload:")
+        print(json.dumps(metaapix_data, indent=2))
+        print()
+    
     # Show key fields
     if 'apiTechnicalName' in data:
         print(f"       Technical Name: {data.get('apiTechnicalName', 'N/A')}")
+    else:
+        print(f"       Technical Name: N/A (field not found)")
+        print(f"       Available fields: {list(data.keys())[:10]}")
     
     if 'version' in data:
         print(f"       Version: {data.get('version', 'N/A')}")
@@ -389,8 +398,8 @@ def main():
             print()
             continue
         
-        # Show preview
-        preview_metadata(metaapix_data)
+        # Show preview (set show_full_json=True to see complete payload)
+        preview_metadata(metaapix_data, show_full_json=True)
         
         # Publish to production
         success = publish_to_production(metaapix_data, repo_url, eim_id, apix_token)
