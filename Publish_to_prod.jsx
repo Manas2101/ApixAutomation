@@ -56,7 +56,7 @@ def parse_github_url(repo_url):
     raise ValueError(f"Invalid GitHub URL: {repo_url}")
 
 
-def fetch_metaapix_from_repo(repo_url, github_token, branch='main'):
+def fetch_metaapix_from_repo(repo_url, github_token, branch='main', silent=False):
     """Fetch metaapix.json from GitHub repository"""
     try:
         repo_info = parse_github_url(repo_url)
@@ -76,7 +76,8 @@ def fetch_metaapix_from_repo(repo_url, github_token, branch='main'):
         
         params = {'ref': branch}
         
-        print(f"    Fetching {METAAPIX_FILENAME} from {owner}/{repo}...", end=' ')
+        if not silent:
+            print(f"    Fetching {METAAPIX_FILENAME} from {owner}/{repo}...", end=' ')
         
         response = requests.get(
             api_url,
@@ -89,10 +90,12 @@ def fetch_metaapix_from_repo(repo_url, github_token, branch='main'):
         
         if response.status_code == 404:
             if branch == 'main':
-                print("trying master branch...", end=' ')
-                return fetch_metaapix_from_repo(repo_url, github_token, branch='master')
+                if not silent:
+                    print("trying master branch...", end=' ')
+                return fetch_metaapix_from_repo(repo_url, github_token, branch='master', silent=silent)
             else:
-                print("❌ NOT FOUND")
+                if not silent:
+                    print("❌ NOT FOUND")
                 return None
         
         response.raise_for_status()
@@ -102,12 +105,35 @@ def fetch_metaapix_from_repo(repo_url, github_token, branch='main'):
         content = base64.b64decode(content_base64).decode('utf-8')
         metaapix_data = json.loads(content)
         
-        print("✅ FETCHED")
+        if not silent:
+            print("✅ FETCHED")
         return metaapix_data
         
     except Exception as e:
-        print(f"❌ ERROR: {str(e)}")
+        if not silent:
+            print(f"❌ ERROR: {str(e)}")
         return None
+
+
+def preview_metadata(metaapix_data):
+    """Display a preview of the metadata"""
+    print("    📄 Metadata Preview:")
+    
+    # Show key fields
+    if 'api_technical_name' in metaapix_data:
+        print(f"       API Name: {metaapix_data['api_technical_name']}")
+    
+    if 'version' in metaapix_data:
+        print(f"       Version: {metaapix_data['version']}")
+    
+    if 'lifecycle_status' in metaapix_data:
+        print(f"       Status: {metaapix_data['lifecycle_status']}")
+    
+    if 'platform' in metaapix_data:
+        print(f"       Platform: {metaapix_data['platform']}")
+    
+    # Show total number of fields
+    print(f"       Total Fields: {len(metaapix_data)}")
 
 
 def publish_to_production(metaapix_data, repo_url, eim_id, apix_token):
@@ -198,6 +224,66 @@ def list_available_sheets(excel_file):
         return []
 
 
+def preview_all_apis(repos, github_token, eim_id):
+    """Preview all APIs that will be published"""
+    print()
+    print("=" * 80)
+    print("📋 PREVIEW: APIs to be Published to PRODUCTION")
+    print("=" * 80)
+    print(f"EIM ID: {eim_id}")
+    print(f"Target: {PROD_PUBLISH_URL}")
+    print(f"Total Repositories: {len(repos)}")
+    print()
+    
+    api_previews = []
+    
+    for i, repo_url in enumerate(repos, 1):
+        print(f"[{i}/{len(repos)}] {repo_url}")
+        
+        # Fetch metadata silently for preview
+        metaapix_data = fetch_metaapix_from_repo(repo_url, github_token, silent=True)
+        
+        if metaapix_data:
+            api_name = metaapix_data.get('api_technical_name', 'N/A')
+            version = metaapix_data.get('version', 'N/A')
+            status = metaapix_data.get('lifecycle_status', 'N/A')
+            
+            print(f"    ✅ API: {api_name} | Version: {version} | Status: {status}")
+            api_previews.append({
+                'repo': repo_url,
+                'data': metaapix_data,
+                'name': api_name
+            })
+        else:
+            print(f"    ❌ Failed to fetch metadata")
+            api_previews.append({
+                'repo': repo_url,
+                'data': None,
+                'name': 'ERROR'
+            })
+    
+    print("=" * 80)
+    return api_previews
+
+
+def confirm_publish():
+    """Ask user for confirmation before publishing to production"""
+    print()
+    print("⚠️  WARNING: You are about to publish to PRODUCTION!")
+    print()
+    
+    response = input("Do you want to continue? (yes/no): ").strip().lower()
+    
+    if response in ['yes', 'y']:
+        return True
+    elif response in ['no', 'n']:
+        print("\n❌ Publishing cancelled by user")
+        return False
+    else:
+        print("\n❌ Invalid response. Please enter 'yes' or 'no'")
+        return confirm_publish()
+
+
 def main():
     print("=" * 80)
     print("Production API Publishing by EIM ID (Excel Sheet)")
@@ -256,6 +342,13 @@ def main():
     if not repos:
         sys.exit(1)
     
+    # Preview all APIs
+    api_previews = preview_all_apis(repos, github_token, eim_id)
+    
+    # Ask for confirmation
+    if not confirm_publish():
+        sys.exit(0)
+    
     print()
     print("-" * 80)
     print("Starting Publication Process")
@@ -266,16 +359,20 @@ def main():
     successful = 0
     failed = 0
     
-    for i, repo_url in enumerate(repos, 1):
-        print(f"[{i}/{len(repos)}] {repo_url}")
+    for i, preview in enumerate(api_previews, 1):
+        repo_url = preview['repo']
+        metaapix_data = preview['data']
         
-        # Fetch metaapix
-        metaapix_data = fetch_metaapix_from_repo(repo_url, github_token)
+        print(f"[{i}/{len(api_previews)}] {repo_url}")
         
         if metaapix_data is None:
+            print(f"    ❌ Skipping - metadata not available")
             failed += 1
             print()
             continue
+        
+        # Show preview
+        preview_metadata(metaapix_data)
         
         # Publish to production
         success = publish_to_production(metaapix_data, repo_url, eim_id, apix_token)
