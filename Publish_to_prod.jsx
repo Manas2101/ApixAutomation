@@ -1,444 +1,14433 @@
-#!/usr/bin/env python3
-"""
-Simple Production Publishing Script
-Publishes APIs to production by EIM ID (Excel Sheet Name)
-"""
+from flask import Flask, request, jsonify
+
+from flask_cors import CORS
+
+import pandas as pd
+
+import yaml
+
+import json
 
 import os
-import sys
-import pandas as pd
+
 import requests
-import base64
-import json
+
 from datetime import datetime
 
-# Configuration
-PROD_PUBLISH_URL = 'https://apix.uk.hsbc/api/v1/publish/apis'
-METAAPIX_FILENAME = 'apix-metadata.json'
-EXCEL_FILE = 'API_MetaData.xlsx'  # Must be .xlsx for multiple sheets
+import base64
 
-# Proxy configuration
+from collections import defaultdict
+
+import re
+
+from io import BytesIO
+
+from urllib.parse import urlparse, parse_qs
+
+ 
+
+app = Flask(__name__)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+CORS(app, resources={r"/api/*": {"origins": "*", "methods": ["GET", "POST", "OPTIONS"], "allow_headers": ["Content-Type"]}})
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+# Proxy configuration - reads from environment variables
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
 PROXIES = {
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
     'http': os.environ.get('HTTP_PROXY', os.environ.get('http_proxy')),
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
     'https': os.environ.get('HTTPS_PROXY', os.environ.get('https_proxy'))
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
 }
-PROXIES = {k: v for k, v in PROXIES.items() if v}
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+# Remove None values
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+PROXIES = {k: v for k, v in PROXIES.items() if v is not None}
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+print(f"Using proxies: {PROXIES if PROXIES else 'None (direct connection)'}")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+# SSL Certificate configuration for GitHub Enterprise
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
 SSL_VERIFY = os.environ.get('SSL_VERIFY', 'true').lower() != 'false'
 
-
-def parse_github_url(repo_url):
-    """Parse GitHub repository URL to extract owner and repo name"""
-    repo_url = repo_url.strip().rstrip('/')
-    
-    if repo_url.endswith('.git'):
-        repo_url = repo_url[:-4]
-    
-    # HTTPS: https://github.com/owner/repo or https://alm-github.systems.uk.hsbc/owner/repo
-    if 'github' in repo_url:
-        parts = repo_url.split('/')
-        if len(parts) >= 2:
-            return {
-                'owner': parts[-2],
-                'repo': parts[-1],
-                'base_url': '/'.join(parts[:-2])
-            }
-    
-    # SSH: git@github.com:owner/repo
-    if 'git@' in repo_url:
-        parts = repo_url.split(':')[-1].split('/')
-        if len(parts) >= 2:
-            return {
-                'owner': parts[0],
-                'repo': parts[1],
-                'base_url': 'https://github.com'
-            }
-    
-    raise ValueError(f"Invalid GitHub URL: {repo_url}")
+ 
 
 
-def fetch_metaapix_from_repo(repo_url, github_token, branch='main', silent=False):
-    """Fetch metaapix.json from GitHub repository"""
+ 
+
+
+ 
+
+
+ 
+
+SSL_CERT_PATH = os.environ.get('SSL_CERT_PATH', None)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+if not SSL_VERIFY:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    print("WARNING: SSL verification is DISABLED")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    import urllib3
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+elif SSL_CERT_PATH:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    print(f"Using custom SSL certificate: {SSL_CERT_PATH}")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    SSL_VERIFY = SSL_CERT_PATH
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+# GitHub Enterprise configuration
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+GITHUB_API_BASE = os.environ.get('GITHUB_API_BASE', 'https://alm-github.systems.uk.hsbc')
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+print(f"GitHub API Base URL: {GITHUB_API_BASE}")
+
+ 
+
+
+ 
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+# Path to the Excel/CSV file - supports both .csv and .xlsx
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+# For deployment, use a static path or allow override via environment variable
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+# Excel file configuration - supports both local files and remote URLs
+DATA_FILE = os.environ.get('API_META_DATA_FILE', '../API_MetaData.xlsx')
+EXCEL_URL = os.environ.get('EXCEL_URL', None)  # Remote Excel URL (Google Sheets, OneDrive, etc.)
+EXCEL_CACHE_TIMEOUT = int(os.environ.get('EXCEL_CACHE_TIMEOUT', '300'))  # Cache timeout in seconds (default: 5 minutes)
+
+ 
+
+WDP_EIM_ID ='12036604'
+
+WDP_JIRA_ID='BDS-123429'
+
+ 
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+print(f"API MetaData file path: {DATA_FILE}")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+# Print the APIX_VALIDATION_TOKEN for debugging (remove in production!)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+print(f"APIX_VALIDATION_TOKEN: {os.environ.get('APIX_VALIDATION_TOKEN')}")
+
+# Cache for remote Excel file
+excel_cache = {
+    'data': None,
+    'timestamp': None,
+    'url': None
+}
+
+def convert_google_sheets_url(url):
+    """
+    Convert Google Sheets URL to direct download URL
+    Supports:
+    - https://docs.google.com/spreadsheets/d/{id}/edit...
+    - https://docs.google.com/spreadsheets/d/{id}
+    """
+    if 'docs.google.com/spreadsheets' in url:
+        if '/d/' in url:
+            sheet_id = url.split('/d/')[1].split('/')[0]
+            return f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=xlsx"
+    return url
+
+def convert_onedrive_url(url):
+    """
+    Convert OneDrive/SharePoint sharing URL to direct download URL
+    """
+    if 'sharepoint.com' in url or '1drv.ms' in url or 'onedrive.live.com' in url:
+        if 'download=1' not in url:
+            separator = '&' if '?' in url else '?'
+            return f"{url}{separator}download=1"
+    return url
+
+def fetch_excel_from_url(url, force_refresh=False):
+    """
+    Fetch Excel file from remote URL with caching
+    Supports Google Sheets, OneDrive, SharePoint, and direct URLs
+    
+    Args:
+        url: Remote Excel file URL
+        force_refresh: Force refresh cache even if not expired
+        
+    Returns:
+        BytesIO object containing Excel data
+    """
+    global excel_cache
+    
+    current_time = datetime.now().timestamp()
+    
+    # Check cache validity
+    if (not force_refresh and 
+        excel_cache['data'] is not None and 
+        excel_cache['url'] == url and
+        excel_cache['timestamp'] is not None and
+        (current_time - excel_cache['timestamp']) < EXCEL_CACHE_TIMEOUT):
+        print(f"Using cached Excel data (age: {int(current_time - excel_cache['timestamp'])}s)")
+        excel_cache['data'].seek(0)
+        return excel_cache['data']
+    
+    print(f"Fetching Excel from URL: {url}")
+    
+    # Convert URL based on platform
+    download_url = url
+    if 'docs.google.com/spreadsheets' in url:
+        download_url = convert_google_sheets_url(url)
+        print(f"Converted Google Sheets URL to: {download_url}")
+    elif 'sharepoint.com' in url or '1drv.ms' in url or 'onedrive.live.com' in url:
+        download_url = convert_onedrive_url(url)
+        print(f"Converted OneDrive/SharePoint URL")
+    
     try:
-        repo_info = parse_github_url(repo_url)
-        owner = repo_info['owner']
-        repo = repo_info['repo']
-        
-        # Determine API URL based on GitHub instance
-        if 'alm-github.systems.uk.hsbc' in repo_url:
-            api_url = f"https://alm-github.systems.uk.hsbc/api/v3/repos/{owner}/{repo}/contents/{METAAPIX_FILENAME}"
-        else:
-            api_url = f"https://api.github.com/repos/{owner}/{repo}/contents/{METAAPIX_FILENAME}"
-        
-        headers = {
-            'Authorization': f'token {github_token}',
-            'Accept': 'application/vnd.github.v3+json'
-        }
-        
-        params = {'ref': branch}
-        
-        if not silent:
-            print(f"    Fetching {METAAPIX_FILENAME} from {owner}/{repo}...", end=' ')
-        
+        # Fetch the file
         response = requests.get(
-            api_url,
-            headers=headers,
-            params=params,
+            download_url,
             proxies=PROXIES if PROXIES else None,
             verify=SSL_VERIFY,
-            timeout=30
+            timeout=60,
+            allow_redirects=True
         )
-        
-        if response.status_code == 404:
-            if branch == 'main':
-                if not silent:
-                    print("trying master branch...", end=' ')
-                return fetch_metaapix_from_repo(repo_url, github_token, branch='master', silent=silent)
-            else:
-                if not silent:
-                    print("❌ NOT FOUND")
-                return None
         
         response.raise_for_status()
         
-        # Decode base64 content
-        content_base64 = response.json().get('content', '')
-        content = base64.b64decode(content_base64).decode('utf-8')
-        metaapix_data = json.loads(content)
+        # Check if we got valid Excel data
+        content_type = response.headers.get('Content-Type', '')
+        if 'html' in content_type.lower():
+            raise ValueError(f"Received HTML instead of Excel file. Check URL permissions and format. Content-Type: {content_type}")
         
-        if not silent:
-            print("✅ FETCHED")
-        return metaapix_data
+        # Store in cache
+        excel_data = BytesIO(response.content)
+        excel_cache['data'] = excel_data
+        excel_cache['timestamp'] = current_time
+        excel_cache['url'] = url
         
+        print(f"Successfully fetched Excel file ({len(response.content)} bytes)")
+        excel_data.seek(0)
+        return excel_data
+        
+    except requests.exceptions.RequestException as e:
+        raise Exception(f"Failed to fetch Excel from URL: {str(e)}")
     except Exception as e:
-        if not silent:
-            print(f"❌ ERROR: {str(e)}")
+        raise Exception(f"Error processing remote Excel file: {str(e)}")
+
+def load_api_data():
+
+
+ 
+
+
+ 
+
+    """
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    Load API data from CSV or Excel file
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    - For CSV: Load normally (old format)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    - For Excel: Try transposed format first, fallback to normal format
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    Returns: DataFrame or dict of grouped APIs
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    """
+
+ 
+
+
+ 
+
+
+ 
+    try:
+        # Check if EXCEL_URL is configured (remote Excel file)
+        if EXCEL_URL:
+            print(f"Loading data from remote URL: {EXCEL_URL}")
+            excel_data = fetch_excel_from_url(EXCEL_URL)
+            
+            # Load from BytesIO object
+            try:
+                excel_file = pd.ExcelFile(excel_data, engine='openpyxl')
+                
+                # If multiple sheets, assume transposed format
+                if len(excel_file.sheet_names) > 1:
+                    print(f"Detected multi-sheet Excel (transposed format) with {len(excel_file.sheet_names)} sheets")
+                    return load_transposed_excel_from_stream(excel_data)
+                else:
+                    # Single sheet - load normally
+                    df = pd.read_excel(excel_data, engine='openpyxl')
+                    print(f"Loaded {len(df)} rows from remote Excel (single sheet)")
+                    return df
+            except Exception as e:
+                print(f"Error loading remote Excel: {str(e)}")
+                raise
+        
+        # Otherwise, load from local file
+        print(f"Loading data from local file: {DATA_FILE}")
+      
+        # Detect file type and load accordingly
+        file_extension = os.path.splitext(DATA_FILE)[1].lower()
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        if file_extension == '.csv':
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            df = pd.read_csv(DATA_FILE)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            print(f"Loaded {len(df)} rows from CSV")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            return df
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        elif file_extension in ['.xlsx', '.xls']:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            # Try transposed format first (multi-sheet)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            try:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                excel_file = pd.ExcelFile(DATA_FILE, engine='openpyxl')
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                # If multiple sheets, assume transposed format
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                if len(excel_file.sheet_names) > 1:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                    print(f"Detected multi-sheet Excel (transposed format)")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                    grouped_data = parse_transposed_excel(DATA_FILE)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                    if grouped_data:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                        return grouped_data  # Returns dict: {repo_url: [apis]}
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            except Exception as e:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                print(f"Not transposed format, trying normal format: {e}")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+          
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            # Fallback to normal single-sheet format
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            df = pd.read_excel(DATA_FILE, engine='openpyxl')
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            print(f"Loaded {len(df)} rows from Excel (normal format)")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            return df
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        else:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            print(f"Unsupported file format: {file_extension}")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            return None
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    except Exception as e:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        print(f"Error loading data: {e}")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
         return None
 
-
-def preview_metadata(metaapix_data, show_full_json=False):
-    """Display a preview of the metadata"""
-    print("    📄 Metadata Preview:")
-    
-    # Handle nested structure - check if data is inside apixMetadata.list
-    data = metaapix_data
-    if 'apixMetadata' in metaapix_data and 'list' in metaapix_data['apixMetadata']:
-        if isinstance(metaapix_data['apixMetadata']['list'], list) and len(metaapix_data['apixMetadata']['list']) > 0:
-            data = metaapix_data['apixMetadata']['list'][0]
-    
-    # Show full JSON if requested
-    if show_full_json:
-        print("    📦 Full JSON Payload:")
-        print(json.dumps(metaapix_data, indent=2))
-        print()
-    
-    # Show key fields
-    if 'apiTechnicalName' in data:
-        print(f"       Technical Name: {data.get('apiTechnicalName', 'N/A')}")
-    else:
-        print(f"       Technical Name: N/A (field not found)")
-        print(f"       Available fields: {list(data.keys())[:10]}")
-    
-    if 'version' in data:
-        print(f"       Version: {data.get('version', 'N/A')}")
-    
-    if 'platform' in data:
-        platform_info = data['platform']
-        provider = platform_info.get('provider', 'N/A') if isinstance(platform_info, dict) else platform_info
-        technology = platform_info.get('technology', 'N/A') if isinstance(platform_info, dict) else 'N/A'
-        print(f"       Platform: {provider}")
-        if technology != 'N/A':
-            print(f"       Technology: {technology}")
-    
-    if 'team' in data:
-        print(f"       Provider Team: {data.get('team', 'N/A')}")
-    
-    # Show total number of fields
-    print(f"       Total Fields: {len(data)}")
+ 
 
 
-def publish_to_production(metaapix_data, repo_url, eim_id, apix_token):
-    """Publish API metadata to production"""
-    headers = {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'Invocation-Source': f'UI_{eim_id}',
-        'Authorization': apix_token
-    }
-    
-    print(f"    Publishing to production...", end=' ')
-    
-    try:
-        response = requests.post(
-            PROD_PUBLISH_URL,
-            json=metaapix_data,
-            headers=headers,
-            proxies=PROXIES if PROXIES else None,
-            verify=SSL_VERIFY,
-            timeout=60
-        )
-        
-        if response.status_code == 200:
-            print("✅ SUCCESS")
-            return True
-        else:
-            error_msg = response.json() if response.text else response.text
-            print(f"❌ FAILED (HTTP {response.status_code})")
-            print(f"       Error: {error_msg}")
-            return False
-            
-    except Exception as e:
-        print(f"❌ ERROR: {str(e)}")
-        return False
+ 
 
 
-def get_repos_from_sheet(eim_id, excel_file):
-    """Get unique repository URLs from a specific Excel sheet (EIM ID = sheet name)"""
-    try:
-        # Load Excel file
-        excel_data = pd.ExcelFile(excel_file, engine='openpyxl')
-        
-        # Check if sheet exists
-        if eim_id not in excel_data.sheet_names:
-            print(f"❌ Error: Sheet '{eim_id}' not found in {excel_file}")
-            print(f"   Available sheets: {', '.join(excel_data.sheet_names)}")
-            return []
-        
-        # Read the specific sheet (transposed format like dev app)
-        df = pd.read_excel(excel_file, sheet_name=eim_id, engine='openpyxl', header=None)
-        
-        if df.empty or len(df.columns) < 2:
-            print(f"❌ Error: Sheet '{eim_id}' is empty")
-            return []
-        
-        # Transpose the data (first column is keys, rest are API data)
-        df_transposed = df.set_index(0).T
-        df_transposed.columns.name = None
-        df_transposed = df_transposed.reset_index(drop=True)
-        
-        # Check for repository_url column
-        if 'repository_url' not in df_transposed.columns:
-            print(f"❌ Error: Column 'repository_url' not found in sheet '{eim_id}'")
-            print(f"   Available columns: {', '.join(df_transposed.columns)}")
-            return []
-        
-        # Get unique repository URLs
-        repos = df_transposed['repository_url'].dropna().unique().tolist()
-        
-        print(f"✅ Found {len(repos)} unique repository URL(s) in sheet: {eim_id}")
-        print(f"   Total APIs: {len(df_transposed)}")
-        
-        return repos
-        
-    except Exception as e:
-        print(f"❌ Error reading Excel sheet: {e}")
-        return []
+ 
 
 
-def list_available_sheets(excel_file):
-    """List all available sheets (EIM IDs) in the Excel file"""
-    try:
-        excel_data = pd.ExcelFile(excel_file, engine='openpyxl')
-        return excel_data.sheet_names
-    except Exception as e:
-        print(f"❌ Error reading Excel file: {e}")
-        return []
+ 
 
 
-def preview_all_apis(repos, github_token, eim_id):
-    """Preview all APIs that will be published"""
-    print()
-    print("=" * 80)
-    print("📋 PREVIEW: APIs to be Published to PRODUCTION")
-    print("=" * 80)
-    print(f"EIM ID: {eim_id}")
-    print(f"Target: {PROD_PUBLISH_URL}")
-    print(f"Total Repositories: {len(repos)}")
-    print()
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+def load_transposed_excel_from_stream(excel_stream):
+    """
+    Load transposed Excel format from BytesIO stream (for remote URLs)
+    This is a wrapper around parse_transposed_excel that handles stream input
+    """
+    excel_stream.seek(0)
+    excel_file = pd.ExcelFile(excel_stream, engine='openpyxl')
     
-    api_previews = []
+    grouped_data = {}
     
-    for i, repo_url in enumerate(repos, 1):
-        print(f"[{i}/{len(repos)}] {repo_url}")
+    for sheet_name in excel_file.sheet_names:
+        excel_stream.seek(0)
+        df = pd.read_excel(excel_stream, sheet_name=sheet_name, engine='openpyxl', header=None)
         
-        # Fetch metadata silently for preview
-        metaapix_data = fetch_metaapix_from_repo(repo_url, github_token, silent=True)
-        
-        if metaapix_data:
-            # Handle nested structure
-            data = metaapix_data
-            if 'apixMetadata' in metaapix_data and 'list' in metaapix_data['apixMetadata']:
-                if isinstance(metaapix_data['apixMetadata']['list'], list) and len(metaapix_data['apixMetadata']['list']) > 0:
-                    data = metaapix_data['apixMetadata']['list'][0]
-            
-            api_name = data.get('apiTechnicalName', 'N/A')
-            version = data.get('version', 'N/A')
-            platform = data.get('platform', {})
-            platform_provider = platform.get('provider', 'N/A') if isinstance(platform, dict) else platform
-            
-            print(f"    ✅ API: {api_name} | Version: {version} | Platform: {platform_provider}")
-            api_previews.append({
-                'repo': repo_url,
-                'data': metaapix_data,
-                'name': api_name
-            })
-        else:
-            print(f"    ❌ Failed to fetch metadata")
-            api_previews.append({
-                'repo': repo_url,
-                'data': None,
-                'name': 'ERROR'
-            })
-    
-    print("=" * 80)
-    return api_previews
-
-
-def confirm_publish():
-    """Ask user for confirmation before publishing to production"""
-    print()
-    print("⚠️  WARNING: You are about to publish to PRODUCTION!")
-    print()
-    
-    response = input("Do you want to continue? (yes/no): ").strip().lower()
-    
-    if response in ['yes', 'y']:
-        return True
-    elif response in ['no', 'n']:
-        print("\n❌ Publishing cancelled by user")
-        return False
-    else:
-        print("\n❌ Invalid response. Please enter 'yes' or 'no'")
-        return confirm_publish()
-
-
-def main():
-    print("=" * 80)
-    print("Production API Publishing by EIM ID (Excel Sheet)")
-    print("=" * 80)
-    print()
-    
-    # Check environment variables
-    github_token = os.environ.get('GITHUB_TOKEN')
-    apix_token = os.environ.get('APIX_VALIDATION_TOKEN')
-    
-    if not github_token:
-        print("❌ Error: GITHUB_TOKEN environment variable not set")
-        print("   Set it with: export GITHUB_TOKEN='your_token'")
-        sys.exit(1)
-    
-    if not apix_token:
-        print("❌ Error: APIX_VALIDATION_TOKEN environment variable not set")
-        print("   Set it with: export APIX_VALIDATION_TOKEN='your_token'")
-        sys.exit(1)
-    
-    # Check if Excel file exists
-    if not os.path.exists(EXCEL_FILE):
-        print(f"❌ Error: Excel file not found: {EXCEL_FILE}")
-        sys.exit(1)
-    
-    # List available sheets
-    available_sheets = list_available_sheets(EXCEL_FILE)
-    
-    if not available_sheets:
-        print(f"❌ Error: No sheets found in {EXCEL_FILE}")
-        sys.exit(1)
-    
-    print(f"📁 Excel File: {EXCEL_FILE}")
-    print(f"📋 Available EIM IDs (sheets): {', '.join(available_sheets)}")
-    print()
-    
-    # Get EIM ID from user
-    if len(sys.argv) > 1:
-        eim_id = sys.argv[1]
-    else:
-        eim_id = input(f"Enter EIM ID (sheet name): ").strip()
-    
-    if not eim_id:
-        print("❌ Error: EIM ID is required")
-        sys.exit(1)
-    
-    print()
-    print(f"🎯 EIM ID (Sheet): {eim_id}")
-    print(f"🌐 Target: {PROD_PUBLISH_URL}")
-    print(f"📤 Invocation-Source: UI_{eim_id}")
-    print()
-    
-    # Get repositories from the sheet
-    repos = get_repos_from_sheet(eim_id, EXCEL_FILE)
-    
-    if not repos:
-        sys.exit(1)
-    
-    # Preview all APIs
-    api_previews = preview_all_apis(repos, github_token, eim_id)
-    
-    # Ask for confirmation
-    if not confirm_publish():
-        sys.exit(0)
-    
-    print()
-    print("-" * 80)
-    print("Starting Publication Process")
-    print("-" * 80)
-    print()
-    
-    # Process each repository
-    successful = 0
-    failed = 0
-    
-    for i, preview in enumerate(api_previews, 1):
-        repo_url = preview['repo']
-        metaapix_data = preview['data']
-        
-        print(f"[{i}/{len(api_previews)}] {repo_url}")
-        
-        if metaapix_data is None:
-            print(f"    ❌ Skipping - metadata not available")
-            failed += 1
-            print()
+        if df.empty:
             continue
+            
+        eim_id = sheet_name.strip()
         
-        # Show preview (set show_full_json=True to see complete payload)
-        preview_metadata(metaapix_data, show_full_json=True)
+        # Parse transposed format (rows are fields, columns are APIs)
+        api_data = {}
+        field_names = df.iloc[:, 0].tolist()
         
-        # Publish to production
-        success = publish_to_production(metaapix_data, repo_url, eim_id, apix_token)
-        
-        if success:
-            successful += 1
+        for col_idx in range(1, len(df.columns)):
+            api_values = df.iloc[:, col_idx].tolist()
+            api_dict = {}
+            
+            for field_idx, field_name in enumerate(field_names):
+                if pd.notna(field_name) and field_idx < len(api_values):
+                    value = api_values[field_idx]
+                    if pd.notna(value):
+                        api_dict[str(field_name).strip()] = value
+            
+            if api_dict:
+                if eim_id not in grouped_data:
+                    grouped_data[eim_id] = []
+                grouped_data[eim_id].append(api_dict)
+    
+    print(f"Loaded {len(grouped_data)} EIM IDs from remote transposed Excel")
+    return grouped_data
+
+def parse_transposed_excel(file_path):
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    """
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    Parse transposed Excel format where:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    - Each sheet represents an EIM ID (for reference)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    - Column A = Field names (vertical)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    - Columns B, C, D... = Different APIs (horizontal)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    - Returns dict grouped by repository URL
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    """
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    try:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        excel_file = pd.ExcelFile(file_path, engine='openpyxl')
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        all_apis = []
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        print(f"\n=== Parsing Transposed Excel ===")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        print(f"Found {len(excel_file.sheet_names)} sheets: {excel_file.sheet_names}")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        # Field name mapping from Excel to our internal structure
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        field_mapping = {
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'API Repo': 'repository_url',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'apiId': 'repository_url',  # Alternative name
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'API Object/API Technical Name': 'api_technical_name',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'version': 'version',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'apiContractURL': 'api_contract_url',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'businessApplicationID': 'snow_business_application_id',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'applicationServiceId': 'snow_application_service_id',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'classification': 'classification',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'sourceCode.pathToSource': 'source_code_path',
+
+ 
+
+
+ 
+
+            # Source code fields - exact Excel column names
+
+ 
+
+
+ 
+
+            'SourceCodeURL': 'source_code_url',
+
+ 
+
+
+ 
+
+            'SourceCode Reference': 'source_code_reference',
+
+ 
+
+
+ 
+
+            'Platform.provider': 'platform_provider',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'Platform.technology': 'platform_technology',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'Platform.team': 'platform_team',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'lifecycleStatus': 'lifecycle_status',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'consumers': 'consumers',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'consumers[].applicationServiceId': 'consumer_application_service_ids',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'gatewayType': 'gateway_type',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'proxyURL': 'gateway_proxy_url',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'configURL': 'gateway_config_url',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'apiHostingCountry': 'api_hosting_country',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'documentationURL': 'documentation_url',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'consumingCountryGroups': 'consuming_country_groups',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'countryCode': 'consuming_country_code',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'groupMemberCode': 'consuming_group_member_code',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'Application Name': 'application_name'
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        }
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        for sheet_name in excel_file.sheet_names:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            print(f"\n--- Processing sheet: {sheet_name} ---")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            df = pd.read_excel(file_path, sheet_name=sheet_name, engine='openpyxl', header=None)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+          
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            if df.empty or len(df.columns) < 2:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                print(f"Skipping empty sheet: {sheet_name}")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                continue
+
+ 
+
+
+ 
+
+          
+
+ 
+
+
+ 
+
+            # Store EIM ID from sheet name for each API in this sheet
+
+ 
+
+
+ 
+
+            eim_id = sheet_name.strip()
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+          
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            # Column A (index 0) contains field names
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            # Columns B onwards (index 1+) contain API data
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            field_names = df.iloc[:, 0].tolist()
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+          
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            # Process each API column (starting from column B = index 1)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            num_apis = len(df.columns) - 1
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            print(f"Found {num_apis} API columns")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+          
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            for col_idx in range(1, len(df.columns)):
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                api_data = {}
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                api_values = df.iloc[:, col_idx].tolist()
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+              
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                # Map field names to values
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                for field_name, value in zip(field_names, api_values):
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                    if pd.notna(field_name) and pd.notna(value):
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                        field_name_clean = str(field_name).strip()
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                        # Map to internal field name
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                        internal_field = field_mapping.get(field_name_clean, field_name_clean.lower().replace(' ', '_'))
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                        api_data[internal_field] = value
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+              
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                # Only add if we have a repository URL
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                if 'repository_url' in api_data and api_data['repository_url']:
+
+ 
+
+
+ 
+
+                    # Add EIM ID to each API data
+
+ 
+
+
+ 
+
+                    api_data['eim_id'] = eim_id
+
+ 
+
+
+ 
+
+                    all_apis.append(api_data)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                    print(f"  API {col_idx}: {api_data.get('api_technical_name', 'N/A')} -> {api_data.get('repository_url', 'N/A')} (EIM: {eim_id})")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        print(f"\n=== Total APIs parsed: {len(all_apis)} ===")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        # Group APIs by repository URL
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        grouped_by_repo = defaultdict(list)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        for api in all_apis:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            repo_url = normalize_repo_url(api['repository_url'])
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            grouped_by_repo[repo_url].append(api)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        print(f"\n=== Grouped into {len(grouped_by_repo)} unique repositories ===")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        for repo_url, apis in grouped_by_repo.items():
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            print(f"  {repo_url}: {len(apis)} API(s)")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        return dict(grouped_by_repo)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    except Exception as e:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        print(f"Error parsing transposed Excel: {e}")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        import traceback
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        traceback.print_exc()
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        return None
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+def normalize_repo_url(url):
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    """Normalize GitHub repository URL for comparison"""
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    if not url:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        return ""
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    url = str(url).strip().lower()
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    # Remove trailing slashes
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    url = url.rstrip('/')
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    # Remove .git suffix if present
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    if url.endswith('.git'):
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        url = url[:-4]
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    return url
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+def find_api_by_repo(repo_url):
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    """Find API data by repository URL - returns list of all APIs in the repo"""
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    data = load_api_data()
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    if data is None:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        return None
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+  
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    normalized_input = normalize_repo_url(repo_url)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    print(f"Searching for normalized URL: {normalized_input}")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+  
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    # Check if data is dict (transposed format) or DataFrame (normal format)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    if isinstance(data, dict):
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        print("Using transposed Excel format (dict)")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        # Data is already grouped by repo URL
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        if normalized_input in data:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            apis = data[normalized_input]
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            print(f"Found {len(apis)} API(s) in transposed data")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            return apis
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
         else:
-            failed += 1
-        
-        print()
-    
-    # Summary
-    print("=" * 80)
-    print("SUMMARY")
-    print("=" * 80)
-    print(f"EIM ID (Sheet): {eim_id}")
-    print(f"Total Repositories: {len(repos)}")
-    print(f"✅ Successful: {successful}")
-    print(f"❌ Failed: {failed}")
-    
-    if successful == len(repos):
-        print(f"\n🎉 All APIs published successfully!")
-    elif successful > 0:
-        print(f"\n⚠️  {failed} API(s) failed to publish")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            print(f"Repository not found in transposed data")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            print(f"Available repos: {list(data.keys())}")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            return None
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+  
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    # Handle DataFrame (old CSV/Excel format)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    df = data
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+  
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    # Check if repository_url column exists
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    if 'repository_url' not in df.columns:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        print(f"ERROR: 'repository_url' column not found in data file")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        print(f"Available columns: {df.columns.tolist()}")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        return None
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+  
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    # Normalize all repository URLs in the dataframe
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    df['normalized_url'] = df['repository_url'].apply(normalize_repo_url)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    print(f"Available URLs in database:")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    for url in df['normalized_url'].tolist():
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        print(f"  - {url}")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+  
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    # Find all matching rows (multiple APIs per repo)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    matching_rows = df[df['normalized_url'] == normalized_input]
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    print(f"Found {len(matching_rows)} API(s) for this repository")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+  
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    if len(matching_rows) > 0:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        # Return list of all APIs in this repository
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        apis = []
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        for idx, row in matching_rows.iterrows():
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            api_dict = {
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                'repository_url': row['repository_url'],
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                'api_technical_name': row['api_technical_name'],
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                'version': row['version'],
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                'snow_business_application_id': row['snow_business_application_id'],
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                'platform': row['platform'],
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                'lifecycle_status': row['lifecycle_status'],
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                'classification': row['classification'],
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            }
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+          
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            # Add new optional fields if they exist
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            optional_fields = [
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                'snow_application_service_id',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                'api_contract_url',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                'documentation_url',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                'api_hosting_country',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                'gateway_type',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                'gateway_proxy_url',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                'gateway_config_url',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                'consumer_application_service_ids',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                'consuming_country_code',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                'consuming_group_member_code',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                'description',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                'owner_team',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                'contact_email'
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            ]
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+          
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            for field in optional_fields:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                if field in row and pd.notna(row[field]):
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                    api_dict[field] = row[field]
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+          
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            apis.append(api_dict)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        return apis
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+  
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    return None
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+def is_valid_value(value):
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    """Check if a value is valid (not empty, not NaN, not None)"""
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    if value is None:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        return False
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    if pd.isna(value):
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        return False
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    if isinstance(value, str) and value.strip() == '':
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        return False
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    return True
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+def validate_and_generate_json(api_data_list):
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    """
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    Generate APIX JSON content from API data (supports multiple APIs)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    DYNAMICALLY includes ALL fields present in the data
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    Validates mandatory fields and rules before generating JSON
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    Returns JSON in apiMetaData wrapper format
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    """
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    # If single API (for backward compatibility), convert to list
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    if isinstance(api_data_list, dict):
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        api_data_list = [api_data_list]
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+  
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    # Define mandatory fields (internal names)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    MANDATORY_FIELDS = ['api_technical_name', 'version']
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    MANDATORY_SECTIONS = ['platform', 'snowData', 'sourceCode']  # Must always exist
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+  
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    # Field mapping: internal_name -> JSON key name
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    # This is the ONLY place to update when adding new fields
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    FIELD_MAPPING = {
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        # Mandatory fields
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        'api_technical_name': 'apiTechnicalName',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        'version': 'version',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        # Top-level optional fields
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        'classification': 'classification',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        'lifecycle_status': 'lifecycleStatus',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        'api_contract_url': 'apiContractURL',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        'documentation_url': 'documentationURL',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        'api_hosting_country': 'apiHostingCountry',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        'application_name': 'applicationName',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        # SNOW data fields (nested under 'snowData') - MANDATORY SECTION
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        'snow_business_application_id': 'snowData.businessApplicationId',  # Fixed: Id not ID
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        'snow_application_service_id': 'snowData.applicationServiceId',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        # Source code fields (nested under 'sourceCode') - MANDATORY SECTION
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    'source_code_url': 'sourceCode.url',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    'source_code_reference': 'sourceCode.reference',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    # Change: treat source_code_path as the URL (we no longer emit pathToSource)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    'source_code_path': 'sourceCode.url',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        # Platform fields (nested under 'platform') - MANDATORY SECTION, lowercase 'p'
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        'platform_provider': 'platform.provider',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        'platform_technology': 'platform.technology',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        'platform_team': 'platform.team',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        'gateway_proxy_url': 'platform.proxyURL',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        'gateway_config_url': 'platform.configURL',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        # Special array fields
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        'consumer_application_service_ids': 'consumers',  # Array of {applicationServiceId}
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        'consuming_country_code': 'consumingCountryGroups.countryCode',  # Part of array
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        'consuming_group_member_code': 'consumingCountryGroups.groupMemberCode',  # Part of array
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    }
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+  
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    # Validation rules
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    VALIDATION_RULES = {
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        'apiTechnicalName': {
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'regex': r'^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?$',  # No leading/trailing hyphens
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'error': 'Must contain only alphanumeric and hyphens, no leading/trailing hyphens'
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        },
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        'lifecycleStatus': {
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'enum': ['ACTIVE', 'INACTIVE', 'DEPRECATED', 'DEVELOPMENT'],
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'transform': 'uppercase',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'error': 'Must be one of: ACTIVE, INACTIVE, DEPRECATED, DEVELOPMENT (uppercase)'
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        },
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        'classification': {
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'enum': ['INTERNAL', 'EXTERNAL', 'CONFIDENTIAL', 'PUBLIC'],
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'transform': 'uppercase',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'error': 'Must be one of: INTERNAL, EXTERNAL, CONFIDENTIAL, PUBLIC (uppercase)'
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        },
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        'countryCode': {
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'regex': r'^[A-Z]{2}$',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'transform': 'uppercase',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'error': 'Must be 2 uppercase letters'
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        },
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        'groupMemberCode': {
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'regex': r'^[A-Z]{4}$',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'transform': 'uppercase',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'error': 'Must be 4 uppercase letters'
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        }
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    }
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+  
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    # Helper function to auto-correct and transform field value
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    def auto_correct_field(field_name, value):
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        """Auto-correct and transform field value according to rules"""
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        if field_name not in VALIDATION_RULES:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            # Generic whitespace trim for all string fields (addresses platform.team regex failing on leading space)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            if isinstance(value, str):
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                trimmed = value.strip()
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                corrections = []
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                if trimmed != value:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                    corrections.append(f"Trimmed whitespace: '{value}' → '{trimmed}'")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                value = trimmed
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                # If platform team becomes empty after trimming, keep original but note warning
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                if field_name == 'team' and value == '':
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                    corrections.append("Warning: platform.team became empty after trimming")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                return value, corrections if corrections else None
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            return value, None
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        rule = VALIDATION_RULES[field_name]
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        original_value = value
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        corrections = []
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        # Apply transformation (uppercase)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        if 'transform' in rule and rule['transform'] == 'uppercase':
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            value = str(value).upper()
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            if str(original_value) != value:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                corrections.append(f"Converted '{original_value}' to '{value}'")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        # Generic whitespace trimming (after case transform) for any string value
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        if isinstance(value, str):
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            trimmed = value.strip()
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            if trimmed != value:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                corrections.append(f"Trimmed whitespace: '{value}' → '{trimmed}'")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                value = trimmed
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        # Auto-correct apiTechnicalName: remove spaces, special chars, trim hyphens
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        if field_name == 'apiTechnicalName':
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            # Remove spaces and special characters except hyphens
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            cleaned = re.sub(r'[^A-Za-z0-9-]', '', str(value))
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            # Remove leading/trailing hyphens
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            cleaned = cleaned.strip('-')
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            if cleaned != str(value):
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                corrections.append(f"Cleaned apiTechnicalName: '{value}' → '{cleaned}'")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                value = cleaned
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        # Auto-correct countryCode: uppercase and truncate to 2 chars
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        if field_name == 'countryCode':
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            original = value
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            value = str(value).upper()[:2]  # Take first 2 chars, uppercase
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            if str(original).upper() != value and len(str(original)) > 2:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                corrections.append(f"Truncated countryCode: '{original}' → '{value}'")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        # Auto-correct groupMemberCode: uppercase and truncate to 4 chars
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        if field_name == 'groupMemberCode':
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            original = value
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            value = str(value).upper()[:4]  # Take first 4 chars, uppercase
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            if str(original).upper() != value and len(str(original)) > 4:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                corrections.append(f"Truncated groupMemberCode: '{original}' → '{value}'")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        # Check enum - if not in enum, use first valid value
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        if 'enum' in rule:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            if value not in rule['enum']:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                default_value = rule['enum'][0]
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                corrections.append(f"Invalid {field_name} '{value}', using default '{default_value}'")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                value = default_value
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        # Final regex check (after corrections)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        if 'regex' in rule:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            if not re.match(rule['regex'], str(value)):
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                # If still doesn't match, log warning but keep the value
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                corrections.append(f"Warning: {field_name} '{value}' doesn't match expected pattern")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        return value, corrections if corrections else None
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+  
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    # Generate JSON for multiple APIs
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    api_list = []
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    skipped_apis = []
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    validation_errors = []
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+  
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    for idx, api_data in enumerate(api_data_list):
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        # Validate mandatory fields
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        missing_fields = []
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        for field in MANDATORY_FIELDS:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            if not is_valid_value(api_data.get(field)):
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                missing_fields.append(field)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        if missing_fields:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            api_name = api_data.get('api_technical_name', f'API #{idx+1}')
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            print(f"⚠️  Skipping {api_name}: Missing mandatory fields: {missing_fields}")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            skipped_apis.append({'api': api_name, 'missing_fields': missing_fields})
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            continue
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        # Build the JSON structure DYNAMICALLY
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        api_content = {}
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        nested_sections = {}  # For nested objects like snowData, platform, sourceCode, etc.
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        api_errors = []
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        # Process all fields in api_data dynamically
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        for internal_field, value in api_data.items():
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            # Skip if value is not valid
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            if not is_valid_value(value):
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                continue
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+          
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            # Skip repository_url as it's not part of YAML output
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            if internal_field == 'repository_url':
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                continue
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+          
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            # Check if field is in our mapping
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            if internal_field not in FIELD_MAPPING:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                # Field not in mapping - check if it's a new field
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                # Add it as-is with camelCase conversion
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                json_key = ''.join(word.capitalize() if i > 0 else word for i, word in enumerate(internal_field.split('_')))
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                print(f"ℹ️  New field detected: '{internal_field}' -> '{json_key}'")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                api_content[json_key] = value
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                continue
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+          
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            json_path = FIELD_MAPPING[internal_field]
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+          
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            # Handle special array fields
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            if internal_field == 'consumer_application_service_ids':
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                # Convert to array of objects
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                consumer_ids = value
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                if isinstance(consumer_ids, str):
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                    consumer_ids = [id.strip() for id in consumer_ids.split(',') if id.strip()]
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                elif not isinstance(consumer_ids, list):
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                    consumer_ids = [consumer_ids]
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+              
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                if consumer_ids:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                    api_content['consumers'] = [
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                        {'applicationServiceId': str(cid)} for cid in consumer_ids
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                    ]
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                continue
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+          
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            # Handle consumingCountryGroups (needs both country and group codes)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            if internal_field in ['consuming_country_code', 'consuming_group_member_code']:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                # Will be processed together later
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                continue
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+          
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            # Handle nested fields (contains '.')
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            if '.' in json_path:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                parts = json_path.split('.')
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                section = parts[0]
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                field_name = parts[1]
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+              
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                if section not in nested_sections:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                    nested_sections[section] = {}
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+              
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                # Auto-correct and transform value
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                corrected_value, corrections = auto_correct_field(field_name, value)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                if corrections:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                    for correction in corrections:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                        print(f"  ✓ {correction}")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+              
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                nested_sections[section][field_name] = corrected_value
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            else:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                # Top-level field - auto-correct and transform
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                corrected_value, corrections = auto_correct_field(json_path, value)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                if corrections:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                    for correction in corrections:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                        print(f"  ✓ {correction}")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+              
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                api_content[json_path] = corrected_value
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        # Ensure mandatory sections exist (even if empty)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        for mandatory_section in MANDATORY_SECTIONS:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            if mandatory_section not in nested_sections:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                nested_sections[mandatory_section] = {}
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                print(f"⚠️  Adding empty mandatory section: {mandatory_section}")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        # Inject hard-coded sourceCode.reference if not already provided
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        if 'sourceCode' in nested_sections:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            if 'reference' not in nested_sections['sourceCode'] or not nested_sections['sourceCode']['reference']:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                # Hard-coded value; adjust if different branch needed
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                nested_sections['sourceCode']['reference'] = 'main'
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        # Add nested sections to main content
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        for section, fields in nested_sections.items():
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            api_content[section] = fields  # Add even if empty (for mandatory sections)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        # Handle consumingCountryGroups separately (needs both fields)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        country_codes = api_data.get('consuming_country_code', '')
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        group_codes = api_data.get('consuming_group_member_code', '')
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        if is_valid_value(country_codes) or is_valid_value(group_codes):
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            # Handle comma-separated lists
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            if isinstance(country_codes, str):
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                country_codes = [c.strip() for c in country_codes.split(',') if c.strip()]
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            elif not isinstance(country_codes, list):
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                country_codes = [country_codes] if country_codes else []
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+          
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            if isinstance(group_codes, str):
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                group_codes = [g.strip() for g in group_codes.split(',') if g.strip()]
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            elif not isinstance(group_codes, list):
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                group_codes = [group_codes] if group_codes else []
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+          
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            if country_codes or group_codes:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                max_len = max(len(country_codes) if country_codes else 0, len(group_codes) if group_codes else 0)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                country_group_list = []
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                for i in range(max_len):
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                    cc = country_codes[i] if i < len(country_codes) else (country_codes[0] if country_codes else '')
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                    gmc = group_codes[i] if i < len(group_codes) else (group_codes[0] if group_codes else '')
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                  
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                    # Auto-correct country and group codes
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                    cc_val, cc_corrections = auto_correct_field('countryCode', cc)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                    gmc_val, gmc_corrections = auto_correct_field('groupMemberCode', gmc)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                  
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                    if cc_corrections:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                        for correction in cc_corrections:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                            print(f"  ✓ {correction}")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                    if gmc_corrections:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                        for correction in gmc_corrections:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                            print(f"  ✓ {correction}")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                  
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                    country_group_list.append({
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                        'countryCode': cc_val,
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                        'groupMemberCode': gmc_val
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                    })
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+              
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                api_content['consumingCountryGroups'] = country_group_list
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        # Log validation errors but still include API
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        if api_errors:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            validation_errors.extend(api_errors)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            print(f"⚠️  Validation warnings for {api_data.get('api_technical_name')}: {api_errors}")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        api_list.append(api_content)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+  
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    # If all APIs were skipped, raise error
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    if not api_list:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        error_msg = "No valid APIs to generate JSON. All APIs are missing mandatory fields.\n"
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        for skipped in skipped_apis:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            error_msg += f"  - {skipped['api']}: Missing {skipped['missing_fields']}\n"
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        raise ValueError(error_msg)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+  
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    # Wrap in apiMetaData structure
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    result = {
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        "apiMetaData": {
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            "apiMetaDataList": api_list
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        }
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    }
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+  
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    # Return JSON string with proper formatting
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    return json.dumps(result, indent=2, ensure_ascii=False)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+@app.route('/api/search', methods=['POST'])
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+def search_api():
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    """Search for API data by repository URL - returns all APIs in the repo"""
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    data = request.json
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    repo_url = data.get('repository_url', '')
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+  
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    if not repo_url:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        return jsonify({'error': 'Repository URL is required'}), 400
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+  
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    api_data_list = find_api_by_repo(repo_url)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+  
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    if api_data_list:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        return jsonify({
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'found': True,
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'count': len(api_data_list),
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'data': api_data_list  # Now returns array of APIs
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        })
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
     else:
-        print(f"\n❌ All APIs failed to publish")
-    
-    print("=" * 80)
-    
-    # Exit with error code if any failed
-    sys.exit(0 if failed == 0 else 1)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        return jsonify({
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'found': False,
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'message': 'No API data found for this repository'
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        }), 404
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+@app.route('/api/generate-json', methods=['POST'])
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+def generate_json_endpoint():
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    """Generate APIX JSON file"""
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    data = request.json
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    repo_url = data.get('repository_url', '')
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+  
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    if not repo_url:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        return jsonify({'error': 'Repository URL is required'}), 400
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+  
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    api_data = find_api_by_repo(repo_url)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+  
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    if not api_data:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        return jsonify({'error': 'No API data found for this repository'}), 404
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+  
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    try:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        json_content = validate_and_generate_json(api_data)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        return jsonify({
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'json': json_content,
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'filename': 'apix-metadata.json'
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        })
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    except ValueError as e:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        return jsonify({'error': str(e)}), 400
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+@app.route('/api/validate', methods=['POST'])
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+def validate_json():
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    """Validate JSON against APIX API"""
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    data = request.json
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    json_content = data.get('json_content', '')
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+  
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+  
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    if not json_content:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        return jsonify({'error': 'JSON content is required'}), 400
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+  
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    try:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        # Validation API endpoint (external). TODO: move Authorization to ENV.
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        validation_url = 'https://dev.apix.uk.hsbc/api/v1/validate/apis'
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        headers = {
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'Content-Type': 'application/json',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'Accept': 'application/json',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'Invocation-Source': 'CD_ABC',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            # WARNING: hard-coded token; replace with ENV var and never commit real secrets.
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'Authorization': os.environ.get('APIX_VALIDATION_TOKEN', 'REPLACE_ME')
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        }
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        print(f"Validating JSON against: {validation_url}")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        # Parse JSON string to dict for validation
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        try:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            json_data = json.loads(json_content) if isinstance(json_content, str) else json_content
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        except json.JSONDecodeError as je:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            return jsonify({'error': 'Provided json_content is not valid JSON', 'detail': str(je), 'offset': je.pos}), 400
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        def safe_json(resp):
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            try:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                return resp.json(), None
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            except ValueError as ve:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                sample = (resp.text or '')[:400]
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                return None, {
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                    'error': 'Non-JSON response from validation service',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                    'status_code': resp.status_code,
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                    'content_type': resp.headers.get('Content-Type'),
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                    'body_sample': sample,
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                    'exception': str(ve)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                }
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        response = requests.post(
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            validation_url,
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            json=json_data,
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            headers=headers,
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            proxies=PROXIES if PROXIES else None,
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            verify=SSL_VERIFY,
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            timeout=30
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        )
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        body_json, body_err = safe_json(response)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        if body_err:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            return jsonify(body_err), 502
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        if response.status_code == 200:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            return jsonify({
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                'valid': True,
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                'message': 'JSON validation successful',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                'details': body_json
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            })
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        else:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            return jsonify({
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                'valid': False,
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                'message': 'JSON validation failed',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                'status_code': response.status_code,
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                'errors': body_json
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            }), 400
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+          
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    except requests.exceptions.RequestException as e:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        return jsonify({'error': f'Validation API request failed: {str(e)}'}), 500
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    except json.JSONDecodeError as e:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        return jsonify({'error': f'Invalid JSON format: {str(e)}'}), 400
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    except Exception as e:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        return jsonify({'error': str(e)}), 500
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+@app.route('/api/create-pr', methods=['POST'])
+
+
+ 
+
+
+ 
+
+
+ 
+
+def create_pr():
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    """Create a pull request with the APIX JSON file"""
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    data = request.json
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    repo_url = data.get('repository_url', '')
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    json_content = data.get('json_content', '')
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    # GitHub token now sourced from environment (service account) instead of request body
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    github_token = os.environ.get('SERVICE_GITHUB_TOKEN') or os.environ.get('GITHUB_TOKEN') or ''
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    if not all([repo_url, json_content]):
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        return jsonify({'error': 'Missing required fields (repository_url, json_content)'}), 400
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    if not github_token:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        return jsonify({'error': 'Server is not configured with SERVICE_GITHUB_TOKEN or GITHUB_TOKEN environment variable'}), 500
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+  
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    try:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        # Parse repository owner and name from URL
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        # Example: https://github.com/owner/repo or https://github.company.com/owner/repo
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        parts = repo_url.rstrip('/').split('/')
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        owner = parts[-2]
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        repo = parts[-1].replace('.git', '')
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        # Support both old (token) and new (Bearer) GitHub auth formats
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        auth_header = f'Bearer {github_token}' if github_token.startswith('ghp_') or github_token.startswith('github_pat_') else f'token {github_token}'
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        headers = {
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'Authorization': auth_header,
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            # Use vendor-specific accept plus fallback behavior
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'Accept': 'application/vnd.github.v3+json',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'User-Agent': 'apix-automation-tool',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'X-GitHub-Api-Version': '2022-11-28'
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        }
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        print(f"Using auth format: {auth_header.split()[0]} (env token)")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        # Detect if user accidentally supplied YAML instead of JSON and convert
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        def attempt_yaml_to_json(text):
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            import yaml as _yaml
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            try:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                # Quick heuristic: Presence of ':' line separators without braces
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                if isinstance(text, str) and ('\n' in text or ':' in text) and not text.strip().startswith('{'):
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                    loaded = _yaml.safe_load(text)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                    if isinstance(loaded, dict) or isinstance(loaded, list):
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                        return json.dumps(loaded, indent=2), True, None
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                return text, False, None
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            except Exception as _e:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                return text, False, str(_e)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        converted_content, was_yaml, yaml_error = attempt_yaml_to_json(json_content)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        if yaml_error:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            print(f"YAML parse attempt failed (ignored): {yaml_error}")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        if was_yaml:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            print("Detected YAML input; converted to JSON before commit.")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            json_content = converted_content
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        # Validate that json_content is valid JSON now
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        try:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            parsed_json = json.loads(json_content)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        except json.JSONDecodeError as je:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            return jsonify({'error': 'json_content is not valid JSON after optional YAML conversion', 'detail': str(je), 'offset': je.pos}), 400
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        # Get default branch
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        repo_info_url = f'{GITHUB_API_BASE}/repos/{owner}/{repo}'
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        print(f"Fetching repo info: {repo_info_url}")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        def safe_json(resp, phase):
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            try:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                return resp.json(), None
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            except ValueError as ve:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                sample = (resp.text or '')[:400]
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                return None, {
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                    'error': 'Non-JSON response',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                    'phase': phase,
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                    'status_code': resp.status_code,
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                    'content_type': resp.headers.get('Content-Type'),
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                    'body_sample': sample,
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                    'exception': str(ve)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                }
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        repo_response = requests.get(
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            repo_info_url,
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            headers=headers,
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            proxies=PROXIES if PROXIES else None,
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            verify=SSL_VERIFY
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        )
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        repo_json, repo_err = safe_json(repo_response, 'repo_info')
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        if repo_err:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            return jsonify(repo_err), 502
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        if repo_response.status_code != 200:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            error_msg = repo_json.get('message', 'Unknown error') if repo_json else 'Unknown'
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            print(f"Failed to access repo: {repo_response.status_code} - {error_msg}")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            return jsonify({'error': 'Failed to access repository', 'status_code': repo_response.status_code, 'details': repo_json}), 400
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        default_branch = repo_json.get('default_branch')
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        print(f"Default branch: {default_branch}")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        # Get the SHA of the default branch
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        ref_url = f'{GITHUB_API_BASE}/repos/{owner}/{repo}/git/refs/heads/{default_branch}'
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        ref_response = requests.get(ref_url, headers=headers, proxies=PROXIES if PROXIES else None, verify=SSL_VERIFY)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        ref_json, ref_err = safe_json(ref_response, 'ref_lookup')
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        if ref_err:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            return jsonify(ref_err), 502
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        if ref_response.status_code != 200:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            error_msg = ref_json.get('message', 'Unknown error') if ref_json else 'Unknown'
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            print(f"Failed to get branch ref: {ref_response.status_code} - {error_msg}")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            return jsonify({'error': 'Failed to get branch reference', 'status_code': ref_response.status_code, 'details': ref_json}), 400
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        try:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            base_sha = ref_json['object']['sha']
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        except Exception:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            return jsonify({'error': 'object.sha missing in ref response', 'ref_json': ref_json}), 502
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        print(f"Base SHA: {base_sha}")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        # Get API data to determine EIM ID for branch naming
+
+ 
+
+
+ 
+
+        api_data_list = find_api_by_repo(repo_url)
+
+ 
+
+
+ 
+
+        if api_data_list:
+
+ 
+
+
+ 
+
+            # Use first API's EIM ID for branch naming
+
+ 
+
+
+ 
+
+            first_api = api_data_list[0] if isinstance(api_data_list, list) else api_data_list
+
+ 
+
+
+ 
+
+            eim_id = first_api.get('eim_id', 'unknown-eim')
+
+ 
+
+
+ 
+
+            # Clean EIM ID for branch naming (remove special chars, lowercase)
+
+ 
+
+
+ 
+
+            clean_eim_id = re.sub(r'[^a-zA-Z0-9-]', '', str(eim_id).lower())
+
+ 
+
+
+ 
+
+            branch_name = f'apix_{clean_eim_id}'
+
+ 
+
+            print(f"Using EIM ID: {eim_id} -> branch: {branch_name}")
+
+           
+
+            # Special validation for WDP repo
+
+            if str(eim_id) == WDP_EIM_ID:
+
+                print(f"WDP repo detected (EIM ID: {eim_id}), will add  JIRA ID to commit message")
+
+ 
+
+
+ 
+
+        else:
+
+ 
+
+            # Fallback to timestamp if no API data found
+
+ 
+
+            branch_name = f'apix-metadata-{datetime.now().strftime("%Y%m%d-%H%M%S")}'
+
+ 
+
+            print(f"No API data found, using timestamp branch: {branch_name}")
+
+ 
+
+        # Create a new branch
+
+        # First, check if the branch already exists so we can reuse it
+
+        existing_branch_url = f'{GITHUB_API_BASE}/repos/{owner}/{repo}/git/refs/heads/{branch_name}'
+
+        existing_branch_response = requests.get(
+
+            existing_branch_url,
+
+            headers=headers,
+
+            proxies=PROXIES if PROXIES else None,
+
+            verify=SSL_VERIFY
+
+        )
+
+ 
+
+        if existing_branch_response.status_code == 200:
+
+            # Branch already exists – reuse it instead of trying to create again
+
+            print(f"Branch already exists, reusing: {branch_name}")
+
+        else:
+
+            # Only attempt to create the branch if it does not already exist
+
+            create_branch_url = f'{GITHUB_API_BASE}/repos/{owner}/{repo}/git/refs'
+
+ 
+
+            branch_data = {
+
+ 
+
+                'ref': f'refs/heads/{branch_name}',
+
+ 
+
+                'sha': base_sha
+
+ 
+
+            }
+
+ 
+
+            print(f"Creating branch: {branch_name}")
+
+ 
+
+            branch_response = requests.post(create_branch_url, json=branch_data, headers=headers, proxies=PROXIES if PROXIES else None, verify=SSL_VERIFY)
+
+ 
+
+            branch_json, branch_err = safe_json(branch_response, 'branch_create')
+
+ 
+
+            if branch_err:
+
+ 
+
+                return jsonify(branch_err), 502
+
+ 
+
+            if branch_response.status_code not in (200, 201):
+
+ 
+
+                error_msg = branch_json.get('message', 'Unknown error') if branch_json else 'Unknown'
+
+ 
+
+                # If GitHub reports that the reference already exists, treat it as a non-fatal condition
+
+                if branch_response.status_code == 422 and 'Reference already exists' in str(error_msg):
+
+                    print(f"Branch {branch_name} already exists according to GitHub; continuing with existing branch")
+
+                else:
+
+                    print(f"Failed to create branch: {branch_response.status_code} - {error_msg}")
+
+ 
+
+                    return jsonify({'error': 'Failed to create branch', 'status_code': branch_response.status_code, 'details': branch_json}), 400
+
+ 
+
+            print(f"Branch created successfully: {branch_name}")
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        # Create or update the file
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        file_path = 'apix-metadata.json'
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        file_url = f'{GITHUB_API_BASE}/repos/{owner}/{repo}/contents/{file_path}'
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        # Check if file exists
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        file_check = requests.get(f'{file_url}?ref={branch_name}', headers=headers, proxies=PROXIES if PROXIES else None, verify=SSL_VERIFY)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        file_check_json, file_check_err = safe_json(file_check, 'file_check')
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        # Create commit message with WDP JIRA ID if needed
+
+        commit_message = 'Add APIX metadata JSON file for API audit'
+
+       
+
+        # Check if this is WDP repo and add JIRA ID
+
+        if api_data_list:
+
+            first_api = api_data_list[0] if isinstance(api_data_list, list) else api_data_list
+
+            eim_id = first_api.get('eim_id', 'unknown-eim')
+
+            if str(eim_id) == WDP_EIM_ID:
+
+                commit_message = f'{WDP_JIRA_ID}: Add APIX metadata JSON file for API audit'
+
+                print(f"Using WDP JIRA ID in commit message for EIM ID: {eim_id}")
+
+ 
+
+        file_data = {
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'message': commit_message,
+
+ 
+
+
+ 
+
+
+ 
+
+            'content': base64.b64encode(json_content.encode()).decode(),
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'branch': branch_name,
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            # Add committer info optionally (GitHub may attribute to token user automatically)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        }
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        if file_check.status_code == 200 and not file_check_err:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            sha = file_check_json.get('sha') if file_check_json else None
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            if not sha:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                return jsonify({'error': 'Missing sha in existing file response', 'details': file_check_json}), 502
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            file_data['sha'] = sha
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            print(f"File exists, updating...")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        else:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            print(f"File doesn't exist, creating new...")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        file_response = requests.put(file_url, json=file_data, headers=headers, proxies=PROXIES if PROXIES else None, verify=SSL_VERIFY)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        file_resp_json, file_resp_err = safe_json(file_response, 'file_put')
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        if file_resp_err:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            return jsonify(file_resp_err), 502
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        if file_response.status_code not in (200, 201):
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            error_msg = file_resp_json.get('message', 'Unknown error') if file_resp_json else 'Unknown'
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            print(f"Failed to create file: {file_response.status_code} - {error_msg}")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            return jsonify({'error': 'Failed to create file', 'status_code': file_response.status_code, 'details': file_resp_json}), 400
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        print(f"File created/updated successfully")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        # Create pull request
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        pr_url = f'{GITHUB_API_BASE}/repos/{owner}/{repo}/pulls'
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        # Create PR title with WDP JIRA ID if needed
+
+        pr_title = 'Add APIX metadata JSON file'
+
+        if api_data_list:
+
+            first_api = api_data_list[0] if isinstance(api_data_list, list) else api_data_list
+
+            eim_id = first_api.get('eim_id', 'unknown-eim')
+
+            if str(eim_id) == WDP_EIM_ID:
+
+                pr_title = f'{WDP_JIRA_ID}: Add APIX metadata JSON file'
+
+ 
+
+        pr_data = {
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'title': pr_title,
+
+ 
+
+
+ 
+
+
+ 
+
+            'body': 'This PR adds the APIX metadata JSON file for API repository audit.\n\nGenerated automatically by APIX Automation Tool.\n\nFile: `apix-metadata.json`',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'head': branch_name,
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'base': default_branch
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        }
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        print(f"Creating pull request from {branch_name} to {default_branch}")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        pr_response = requests.post(pr_url, json=pr_data, headers=headers, proxies=PROXIES if PROXIES else None, verify=SSL_VERIFY)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        pr_json, pr_err = safe_json(pr_response, 'pr_create')
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        if pr_err:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            return jsonify(pr_err), 502
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        if pr_response.status_code == 201:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            pr_info = pr_json
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            print(f"PR created successfully: {pr_info['html_url']}")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            return jsonify({
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                'success': True,
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                'pr_url': pr_info['html_url'],
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                'pr_number': pr_info['number']
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            })
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        else:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            error_msg = pr_json.get('message', 'Unknown error') if pr_json else 'Unknown'
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            errors = pr_json.get('errors', []) if pr_json else []
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            print(f"Failed to create PR: {pr_response.status_code} - {error_msg}")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            if errors:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                print(f"Errors: {errors}")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            return jsonify({'error': 'Failed to create pull request', 'status_code': pr_response.status_code, 'details': pr_json}), 400
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+          
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    except Exception as e:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        return jsonify({'error': str(e)}), 500
+
+ 
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+@app.route('/api/upload-excel', methods=['POST'])
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+def upload_excel():
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    """
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    Upload and parse transposed Excel file
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    Returns all APIs grouped by repository URL
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    """
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    try:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        if 'file' not in request.files:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            return jsonify({'error': 'No file provided'}), 400
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        file = request.files['file']
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        if file.filename == '':
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            return jsonify({'error': 'No file selected'}), 400
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        if not file.filename.endswith(('.xlsx', '.xls')):
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            return jsonify({'error': 'Only Excel files (.xlsx, .xls) are supported'}), 400
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        # Save temporarily
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        temp_path = os.path.join('/tmp', f'upload_{datetime.now().timestamp()}.xlsx')
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        file.save(temp_path)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        print(f"Uploaded file saved to: {temp_path}")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        # Parse the transposed Excel
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        grouped_apis = parse_transposed_excel(temp_path)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        # Clean up temp file
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        os.remove(temp_path)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        if not grouped_apis:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            return jsonify({'error': 'No valid API data found in Excel file'}), 400
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        # Convert to response format
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        result = {
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'total_repos': len(grouped_apis),
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'total_apis': sum(len(apis) for apis in grouped_apis.values()),
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'repositories': {}
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        }
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        for repo_url, apis in grouped_apis.items():
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            result['repositories'][repo_url] = {
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                'count': len(apis),
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+                'apis': apis
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            }
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        return jsonify(result)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    except Exception as e:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        print(f"Error in upload_excel: {e}")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        import traceback
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        traceback.print_exc()
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        return jsonify({'error': str(e)}), 500
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+@app.route('/api/generate-json-from-upload', methods=['POST'])
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+def generate_json_from_upload():
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    """
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    Generate JSON for a specific repository from uploaded data
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    Request body: { repository_url: string, apis: [...] }
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    """
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    try:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        data = request.json
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        repo_url = data.get('repository_url')
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        apis = data.get('apis', [])
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        if not repo_url or not apis:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            return jsonify({'error': 'repository_url and apis are required'}), 400
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        # Generate JSON for these APIs
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        json_content = validate_and_generate_json(apis)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        return jsonify({
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'json': json_content,
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'filename': 'apix-metadata.json',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'repository_url': repo_url,
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+            'api_count': len(apis)
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        })
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+      
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    except ValueError as e:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        print(f"Error generating JSON: {e}")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        return jsonify({'error': str(e)}), 400
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    except Exception as e:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        print(f"Error generating JSON: {e}")
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        import traceback
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        traceback.print_exc()
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        return jsonify({'error': str(e)}), 500
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+@app.route('/api/check-pr-status', methods=['POST'])
+
+ 
+
+def check_pr_status():
+
+ 
+
+    """Check if PR for a repository has been merged"""
+
+ 
+
+    data = request.json
+
+ 
+
+    repo_url = data.get('repository_url', '')
+
+ 
+
+  
+
+ 
+
+    if not repo_url:
+
+ 
+
+        return jsonify({'error': 'Repository URL is required'}), 400
+
+ 
+
+  
+
+ 
+
+    # GitHub token from environment
+
+ 
+
+    github_token = os.environ.get('SERVICE_GITHUB_TOKEN') or os.environ.get('GITHUB_TOKEN') or ''
+
+ 
+
+  
+
+ 
+
+    if not github_token:
+
+ 
+
+        return jsonify({'error': 'Server is not configured with GitHub token'}), 500
+
+ 
+
+  
+
+ 
+
+    try:
+
+ 
+
+        # Parse repository owner and name from URL
+
+ 
+
+        parts = repo_url.rstrip('/').split('/')
+
+ 
+
+        owner = parts[-2]
+
+ 
+
+        repo = parts[-1].replace('.git', '')
+
+ 
+
+      
+
+ 
+
+        # Get API data to determine EIM ID for branch naming
+
+ 
+
+        api_data_list = find_api_by_repo(repo_url)
+
+ 
+
+        if not api_data_list:
+
+ 
+
+            return jsonify({'error': 'No API data found for this repository'}), 404
+
+ 
+
+      
+
+ 
+
+        # Use first API's EIM ID for branch naming (same logic as create_pr)
+
+ 
+
+        first_api = api_data_list[0] if isinstance(api_data_list, list) else api_data_list
+
+ 
+
+        eim_id = first_api.get('eim_id', 'unknown-eim')
+
+ 
+
+        clean_eim_id = re.sub(r'[^a-zA-Z0-9-]', '', str(eim_id).lower())
+
+ 
+
+        branch_name = f'apix_{clean_eim_id}'
+
+ 
+
+      
+
+ 
+
+        # Setup headers
+
+ 
+
+        auth_header = f'Bearer {github_token}' if github_token.startswith('ghp_') or github_token.startswith('github_pat_') else f'token {github_token}'
+
+ 
+
+        headers = {
+
+ 
+
+            'Authorization': auth_header,
+
+ 
+
+            'Accept': 'application/vnd.github+json',
+
+ 
+
+            'User-Agent': 'apix-automation-tool',
+
+ 
+
+            'X-GitHub-Api-Version': '2022-11-28'
+
+ 
+
+        }
+
+ 
+
+      
+
+ 
+
+        # First, check if the branch actually exists in the repository
+
+        branch_check_url = f'{GITHUB_API_BASE}/repos/{owner}/{repo}/git/refs/heads/{branch_name}'
+
+        branch_response = requests.get(
+
+            branch_check_url,
+
+            headers=headers,
+
+            proxies=PROXIES if PROXIES else None,
+
+            verify=SSL_VERIFY
+
+        )
+
+       
+
+        branch_exists = branch_response.status_code == 200
+
+        print(f"Branch {branch_name} exists: {branch_exists}")
+
+       
+
+        # If branch doesn't exist, treat as no PR regardless of PR history
+
+        if not branch_exists:
+
+            return jsonify({
+
+                'pr_exists': False,
+
+                'is_merged': False,
+
+                'branch_exists': False,
+
+                'is_approved': False,
+
+                'message': 'No active branch found. Please create a new PR.',
+
+                'can_publish': False
+
+            })
+
+ 
+
+        # Search for PRs from our branch
+
+ 
+
+        pr_search_url = f'{GITHUB_API_BASE}/repos/{owner}/{repo}/pulls'
+
+ 
+
+        pr_params = {
+
+ 
+
+            'head': f'{owner}:{branch_name}',
+
+ 
+
+            'state': 'all'  # Include both open and closed PRs
+
+ 
+
+        }
+
+ 
+
+      
+
+ 
+
+        pr_response = requests.get(
+
+ 
+
+            pr_search_url,
+
+ 
+
+            headers=headers,
+
+ 
+
+            params=pr_params,
+
+ 
+
+            proxies=PROXIES if PROXIES else None,
+
+ 
+
+            verify=SSL_VERIFY
+
+ 
+
+        )
+
+ 
+
+      
+
+ 
+
+        if pr_response.status_code != 200:
+
+ 
+
+            return jsonify({
+
+ 
+
+                'error': 'Failed to fetch PR information',
+
+ 
+
+                'status_code': pr_response.status_code
+
+ 
+
+            }), 400
+
+ 
+
+      
+
+ 
+
+        prs = pr_response.json()
+
+ 
+
+      
+
+ 
+
+        if not prs:
+
+ 
+
+            return jsonify({
+
+ 
+
+                'pr_exists': False,
+
+ 
+
+                'is_merged': False,
+
+ 
+
+                'branch_exists': True,
+
+ 
+
+                'is_approved': False,
+
+ 
+
+                'message': 'No PR found for this repository. Please create a PR first.',
+
+ 
+
+                'can_publish': False
+
+ 
+
+            })
+
+ 
+
+      
+
+ 
+
+        # Get the most recent PR
+
+ 
+
+        latest_pr = prs[0]
+
+ 
+
+        pr_number = latest_pr['number']
+
+ 
+
+      
+
+ 
+
+        # For closed PRs, we need to check the specific PR details to get accurate merge status
+
+ 
+
+        # GitHub's PR list API doesn't always include the 'merged' field accurately
+
+ 
+
+        if latest_pr['state'] == 'closed':
+
+ 
+
+            pr_detail_url = f'{GITHUB_API_BASE}/repos/{owner}/{repo}/pulls/{pr_number}'
+
+ 
+
+            print(f"Checking detailed PR info: {pr_detail_url}")
+
+ 
+
+          
+
+ 
+
+            pr_detail_response = requests.get(
+
+ 
+
+                pr_detail_url,
+
+ 
+
+                headers=headers,
+
+ 
+
+                proxies=PROXIES if PROXIES else None,
+
+ 
+
+                verify=SSL_VERIFY
+
+ 
+
+            )
+
+ 
+
+          
+
+ 
+
+            if pr_detail_response.status_code == 200:
+
+ 
+
+                pr_details = pr_detail_response.json()
+
+ 
+
+                is_merged = pr_details.get('merged', False)
+
+ 
+
+                merged_at = pr_details.get('merged_at')
+
+ 
+
+                print(f"PR #{pr_number} detailed check - Merged: {is_merged}, Merged at: {merged_at}")
+
+ 
+
+            else:
+
+ 
+
+                print(f"Failed to get PR details, using list data. Status: {pr_detail_response.status_code}")
+
+ 
+
+                # Fallback to the list response data
+
+ 
+
+                is_merged = latest_pr.get('merged', False)
+
+ 
+
+                merged_at = latest_pr.get('merged_at')
+
+ 
+
+        else:
+
+ 
+
+            is_merged = latest_pr.get('merged', False)
+
+ 
+
+            merged_at = latest_pr.get('merged_at')
+
+ 
+
+      
+
+ 
+
+        pr_status = {
+
+ 
+
+            'pr_exists': True,
+
+ 
+
+            'pr_number': pr_number,
+
+ 
+
+            'pr_url': latest_pr['html_url'],
+
+ 
+
+            'pr_state': latest_pr['state'],
+
+ 
+
+            'is_merged': is_merged,
+
+ 
+
+            'merged_at': merged_at,
+
+ 
+
+            'branch_exists': True,
+
+ 
+
+            'can_publish': False,
+
+ 
+
+            'message': ''
+
+ 
+
+        }
+
+ 
+
+      
+
+ 
+
+        print(f"Final PR status - PR #{pr_number}, State: {latest_pr['state']}, Merged: {is_merged}")
+
+ 
+
+      
+
+ 
+
+        if is_merged:
+
+ 
+
+            pr_status['can_publish'] = True
+
+ 
+
+            pr_status['message'] = f'✅ PR #{pr_number} has been merged! You can now publish.'
+
+ 
+
+        elif latest_pr['state'] == 'open':
+
+ 
+
+            pr_status['message'] = f'⏳ PR #{pr_number} is still open. Waiting for approval and merge.'
+
+ 
+
+        elif latest_pr['state'] == 'closed' and not is_merged:
+
+ 
+
+            pr_status['message'] = f'❌ PR #{pr_number} was closed without merging. Please create a new PR.'
+
+ 
+
+      
+
+ 
+
+        return jsonify(pr_status)
+
+ 
+
+      
+
+ 
+
+    except Exception as e:
+
+ 
+
+        return jsonify({'error': str(e)}), 500
+
+ 
+
+
+ 
+
+@app.route('/api/publish', methods=['POST'])
+
+ 
+
+def publish_api():
+
+ 
+
+    """Publish API metadata (placeholder for actual publish logic)"""
+
+ 
+
+    data = request.json
+
+ 
+
+    repo_url = data.get('repository_url', '')
+
+ 
+
+  
+
+ 
+
+    if not repo_url:
+
+ 
+
+        return jsonify({'error': 'Repository URL is required'}), 400
+
+ 
+
+  
+
+ 
+
+    try:
+
+ 
+
+        # First check if PR is merged by calling the check function directly
+
+ 
+
+        # We need to create a mock request object for the check function
+
+ 
+
+        from flask import Flask
+
+ 
+
+        with app.test_request_context(json={'repository_url': repo_url}):
+
+ 
+
+            pr_status_response = check_pr_status()
+
+ 
+
+            if isinstance(pr_status_response, tuple):
+
+ 
+
+                pr_status_data = pr_status_response[0].get_json()
+
+ 
+
+            else:
+
+ 
+
+                pr_status_data = pr_status_response.get_json()
+
+ 
+
+      
+
+ 
+
+        if not pr_status_data.get('can_publish', False):
+
+ 
+
+            return jsonify({
+
+ 
+
+                'error': 'Cannot publish: PR not merged yet',
+
+ 
+
+                'message': pr_status_data.get('message', 'PR status unknown')
+
+ 
+
+            }), 400
+
+ 
+
+      
+
+ 
+
+        # Get API data
+
+ 
+
+        api_data_list = find_api_by_repo(repo_url)
+
+ 
+
+        if not api_data_list:
+
+ 
+
+            return jsonify({'error': 'No API data found for this repository'}), 404
+
+ 
+
+      
+
+ 
+
+        # Generate JSON content for publishing
+
+ 
+
+        json_content = validate_and_generate_json(api_data_list)
+
+ 
+
+      
+
+ 
+
+        # Call the actual APIX publish API
+
+ 
+
+        publish_url = 'https://dev.apix.uk.hsbc/api/v1/publish/apis'
+
+ 
+
+      
+
+ 
+
+        headers = {
+
+ 
+
+            'Content-Type': 'application/json',
+
+ 
+
+            'Accept': 'application/json',
+
+ 
+
+            'Invocation-Source': 'CI_ABC',
+
+ 
+
+            'Authorization': os.environ.get('APIX_VALIDATION_TOKEN', 'REPLACE_ME')
+
+ 
+
+        }
+
+ 
+
+      
+
+ 
+
+        print(f"Publishing API metadata to: {publish_url}")
+
+ 
+
+        print(f"Repository: {repo_url}")
+
+ 
+
+        print(f"API count: {len(api_data_list) if isinstance(api_data_list, list) else 1}")
+
+ 
+
+      
+
+ 
+
+        # Parse JSON content for the API call
+
+ 
+
+        try:
+
+ 
+
+            json_data = json.loads(json_content) if isinstance(json_content, str) else json_content
+
+ 
+
+        except json.JSONDecodeError as je:
+
+ 
+
+            return jsonify({'error': 'Generated JSON content is invalid', 'detail': str(je)}), 500
+
+ 
+
+      
+
+ 
+
+        # Make the publish API call
+
+ 
+
+        response = requests.post(
+
+ 
+
+            publish_url,
+
+ 
+
+            json=json_data,
+
+ 
+
+            headers=headers,
+
+ 
+
+            proxies=PROXIES if PROXIES else None,
+
+ 
+
+            verify=SSL_VERIFY,
+
+ 
+
+            timeout=30
+
+ 
+
+        )
+
+ 
+
+      
+
+ 
+
+        if response.status_code == 200:
+
+ 
+
+            return jsonify({
+
+ 
+
+                'success': True,
+
+ 
+
+                'message': '🎉 API metadata published successfully!',
+
+ 
+
+                'repository_url': repo_url,
+
+ 
+
+                'published_apis': len(api_data_list) if isinstance(api_data_list, list) else 1,
+
+ 
+
+                'timestamp': datetime.utcnow().isoformat() + 'Z',
+
+ 
+
+                'publish_response': response.json() if response.text else {}
+
+ 
+
+            })
+
+ 
+
+        else:
+
+ 
+
+            error_details = response.json() if response.text else {'error': response.text}
+
+ 
+
+            return jsonify({
+
+ 
+
+                'error': 'Failed to publish API metadata',
+
+ 
+
+                'status_code': response.status_code,
+
+ 
+
+                'details': error_details
+
+ 
+
+            }), 400
+
+ 
+
+      
+
+ 
+
+    except Exception as e:
+
+ 
+
+        return jsonify({'error': str(e)}), 500
+
+ 
+
+
+ 
+
+@app.route('/api/health', methods=['GET'])
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+def health():
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    """Health check endpoint"""
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    return jsonify({'status': 'healthy'})
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+@app.route('/api/ping', methods=['GET'])
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+def ping():
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    """Simple ping endpoint for deployment smoke test"""
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    return jsonify({'pong': True, 'timestamp': datetime.utcnow().isoformat() + 'Z'})
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+@app.route('/api/echo', methods=['GET', 'POST'])
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+def echo():
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    """Echo endpoint: returns provided message (query param ?msg= or JSON body {"message": "..."})"""
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    msg = request.args.get('msg')
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    if not msg and request.is_json:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        body = request.get_json(silent=True) or {}
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        msg = body.get('message')
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    if not msg:
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        msg = 'ok'
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    return jsonify({
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        'echo': msg,
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        'timestamp': datetime.utcnow().isoformat() + 'Z',
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        'sslVerify': bool(SSL_VERIFY),
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        'proxiesConfigured': bool(PROXIES),
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+        'githubApiBase': GITHUB_API_BASE
+
+ 
+
+
+ 
+
+
+ 
+
+
+ 
+
+    })
+
+ 
 
 
 if __name__ == '__main__':
-    try:
-        main()
-    except KeyboardInterrupt:
-        print("\n\n⚠️  Operation cancelled by user")
-        sys.exit(1)
-    except Exception as e:
-        print(f"\n❌ Unexpected error: {e}")
-        sys.exit(1)
+
+    app.run(host='0.0.0.0', debug=True, port=5001)
