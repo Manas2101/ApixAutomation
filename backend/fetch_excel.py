@@ -4,7 +4,7 @@ from io import BytesIO
 import os
 
 
-def fetch_excel_from_github(repo_owner, repo_name, file_path, branch="main", github_base_url=None):
+def fetch_excel_from_github(repo_owner, repo_name, file_path, branch="main", github_base_url=None, token=None):
     """
     Fetches an Excel file from GitHub (including Enterprise) and returns parsed data.
     Handles transposed format where rows are field names and columns are records.
@@ -15,12 +15,17 @@ def fetch_excel_from_github(repo_owner, repo_name, file_path, branch="main", git
         file_path: Path to the Excel file within the repository
         branch: Branch name (default: "main")
         github_base_url: Base URL for GitHub Enterprise (e.g., "https://alm-github.systems.uk.hsbc")
+        token: GitHub token for authentication (required for private repos/Enterprise)
     
     Returns:
         Parsed data in the same format as parse_transposed_excel() - dict grouped by repo URL
     """
     if github_base_url is None:
         github_base_url = os.environ.get('GITHUB_API_BASE', 'https://github.com')
+    
+    # Get token from parameter or environment
+    if token is None:
+        token = os.environ.get('GITHUB_TOKEN') or os.environ.get('SERVICE_GITHUB_TOKEN')
     
     github_base_url = github_base_url.rstrip('/')
     
@@ -31,6 +36,23 @@ def fetch_excel_from_github(repo_owner, repo_name, file_path, branch="main", git
         raw_url = f"{github_base_url}/{repo_owner}/{repo_name}/raw/{branch}/{file_path}"
     
     print(f"Fetching Excel from: {raw_url}")
+    
+    # Setup headers with authentication
+    headers = {
+        'User-Agent': 'apix-automation-tool',
+        'Accept': 'application/octet-stream, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, */*'
+    }
+    
+    # Add authentication if token is provided
+    if token:
+        # Support both old (token) and new (Bearer) GitHub auth formats
+        if token.startswith('ghp_') or token.startswith('github_pat_'):
+            headers['Authorization'] = f'Bearer {token}'
+        else:
+            headers['Authorization'] = f'token {token}'
+        print("Using GitHub token authentication")
+    else:
+        print("WARNING: No GitHub token provided - authentication may fail for private repos")
     
     proxies = {
         'http': os.environ.get('HTTP_PROXY', os.environ.get('http_proxy')),
@@ -47,7 +69,7 @@ def fetch_excel_from_github(repo_owner, repo_name, file_path, branch="main", git
     elif ssl_cert_path:
         ssl_verify = ssl_cert_path
     
-    response = requests.get(raw_url, proxies=proxies if proxies else None, verify=ssl_verify)
+    response = requests.get(raw_url, headers=headers, proxies=proxies if proxies else None, verify=ssl_verify)
     response.raise_for_status()
     
     # Check if we got HTML instead of binary Excel file

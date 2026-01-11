@@ -4,6 +4,17 @@ from fetch_excel import fetch_excel_from_github
 os.environ['GITHUB_API_BASE'] = 'https://alm-github.systems.uk.hsbc'
 os.environ['SSL_VERIFY'] = 'false'
 
+# IMPORTANT: Set your GitHub token here or via environment variable
+# You can get a token from: GitHub Enterprise -> Settings -> Developer settings -> Personal access tokens
+# os.environ['GITHUB_TOKEN'] = 'your_token_here'
+
+# Check if token is set
+github_token = os.environ.get('GITHUB_TOKEN') or os.environ.get('SERVICE_GITHUB_TOKEN')
+if not github_token:
+    print("WARNING: No GITHUB_TOKEN set. Set it via environment variable for authentication.")
+    print("Example: export GITHUB_TOKEN=your_personal_access_token")
+    print("")
+
 try:
     print("Testing fetch_excel_from_github...")
     print("=" * 60)
@@ -15,7 +26,8 @@ try:
         repo_name='automation_utilities',
         file_path='Api_MetaData.xlsx',  # File at root of repo
         branch='Apix_Backend',
-        github_base_url='https://alm-github.systems.uk.hsbc'
+        github_base_url='https://alm-github.systems.uk.hsbc',
+        token=github_token  # Pass token for authentication
     )
     
     if isinstance(result, dict):
