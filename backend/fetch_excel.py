@@ -61,20 +61,71 @@ def fetch_excel_from_github(repo_owner, repo_name, file_path, branch="main", git
     elif ssl_cert_path:
         ssl_verify = ssl_cert_path
     
-    # Use GitHub API endpoint instead of raw URL for better authentication support
+    # GitHub Enterprise may not have /api/v3 prefix - try without it first
     if 'github.com' in github_base_url and 'alm-github' not in github_base_url:
         api_url = f"https://api.github.com/repos/{repo_owner}/{repo_name}/contents/{file_path}"
     else:
-        # GitHub Enterprise API format
-        api_url = f"{github_base_url}/api/v3/repos/{repo_owner}/{repo_name}/contents/{file_path}"
+        # Try GitHub Enterprise API without /api/v3 prefix first
+        api_url = f"{github_base_url}/repos/{repo_owner}/{repo_name}/contents/{file_path}"
     
     print(f"Fetching Excel via GitHub API: {api_url}")
     print(f"Branch: {branch}")
+    print(f"Token present: {bool(token)}")
+    if token:
+        print(f"Token prefix: {token[:10]}...")
     
     # Add branch parameter
     params = {'ref': branch}
     
     response = requests.get(api_url, headers=headers, params=params, proxies=proxies if proxies else None, verify=ssl_verify)
+    
+    # If 401/404 and this is GitHub Enterprise, try with /api/v3 prefix
+    if response.status_code in [401, 404] and 'alm-github' in github_base_url:
+        print(f"First attempt failed ({response.status_code}), trying with /api/v3 prefix...")
+        api_url = f"{github_base_url}/api/v3/repos/{repo_owner}/{repo_name}/contents/{file_path}"
+        print(f"Retry URL: {api_url}")
+        response = requests.get(api_url, headers=headers, params=params, proxies=proxies if proxies else None, verify=ssl_verify)
+    
+    print(f"Response status: {response.status_code}")
+    
+    # If API fails with 401, try raw URL as fallback (may work with SSO-enabled accounts)
+    if response.status_code == 401:
+        print("API authentication failed, trying raw URL as fallback...")
+        
+        # Construct raw URL
+        if 'github.com' in github_base_url and 'alm-github' not in github_base_url:
+            raw_url = f"https://raw.githubusercontent.com/{repo_owner}/{repo_name}/{branch}/{file_path}"
+        else:
+            raw_url = f"{github_base_url}/{repo_owner}/{repo_name}/raw/{branch}/{file_path}"
+        
+        print(f"Trying raw URL: {raw_url}")
+        
+        # Try with token in header
+        raw_response = requests.get(raw_url, headers=headers, proxies=proxies if proxies else None, verify=ssl_verify)
+        
+        if raw_response.status_code == 200:
+            print("✓ Raw URL succeeded!")
+            response = raw_response
+        else:
+            print(f"Raw URL also failed with status {raw_response.status_code}")
+            raise ValueError(
+                f"401 Unauthorized - GitHub token authentication failed for both API and raw URL.\n"
+                f"API URL: {api_url}\n"
+                f"Raw URL: {raw_url}\n"
+                f"Token present: {bool(token)}\n\n"
+                f"Possible causes:\n"
+                f"  1. Token doesn't have 'repo' scope\n"
+                f"  2. Token has expired\n"
+                f"  3. GitHub Enterprise requires SSO/SAML authorization for this token\n"
+                f"     → Go to {github_base_url}/settings/tokens\n"
+                f"     → Click 'Configure SSO' next to your token\n"
+                f"     → Authorize it for your organization\n"
+                f"  4. Token format is incorrect (should start with 'ghp_' or 'github_pat_')\n\n"
+                f"Alternative: If your organization uses SSO, you may need to:\n"
+                f"  - Generate a new token\n"
+                f"  - Immediately authorize it for SSO before using it"
+            )
+    
     response.raise_for_status()
     
     # Check if we got HTML instead of binary Excel file
