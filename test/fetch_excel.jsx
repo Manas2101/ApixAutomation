@@ -29,18 +29,10 @@ def fetch_excel_from_github(repo_owner, repo_name, file_path, branch="main", git
     
     github_base_url = github_base_url.rstrip('/')
     
-    if 'github.com' in github_base_url and 'alm-github' not in github_base_url:
-        raw_url = f"https://raw.githubusercontent.com/{repo_owner}/{repo_name}/{branch}/{file_path}"
-    else:
-        # GitHub Enterprise format: {base_url}/{owner}/{repo}/raw/{branch}/{path}
-        raw_url = f"{github_base_url}/{repo_owner}/{repo_name}/raw/{branch}/{file_path}"
-    
-    print(f"Fetching Excel from: {raw_url}")
-    
     # Setup headers with authentication
     headers = {
         'User-Agent': 'apix-automation-tool',
-        'Accept': 'application/octet-stream, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, */*'
+        'Accept': 'application/vnd.github.v3.raw'  # Request raw content directly
     }
     
     # Add authentication if token is provided
@@ -69,7 +61,20 @@ def fetch_excel_from_github(repo_owner, repo_name, file_path, branch="main", git
     elif ssl_cert_path:
         ssl_verify = ssl_cert_path
     
-    response = requests.get(raw_url, headers=headers, proxies=proxies if proxies else None, verify=ssl_verify)
+    # Use GitHub API endpoint instead of raw URL for better authentication support
+    if 'github.com' in github_base_url and 'alm-github' not in github_base_url:
+        api_url = f"https://api.github.com/repos/{repo_owner}/{repo_name}/contents/{file_path}"
+    else:
+        # GitHub Enterprise API format
+        api_url = f"{github_base_url}/api/v3/repos/{repo_owner}/{repo_name}/contents/{file_path}"
+    
+    print(f"Fetching Excel via GitHub API: {api_url}")
+    print(f"Branch: {branch}")
+    
+    # Add branch parameter
+    params = {'ref': branch}
+    
+    response = requests.get(api_url, headers=headers, params=params, proxies=proxies if proxies else None, verify=ssl_verify)
     response.raise_for_status()
     
     # Check if we got HTML instead of binary Excel file
@@ -80,11 +85,12 @@ def fetch_excel_from_github(repo_owner, repo_name, file_path, branch="main", git
     first_bytes = response.content[:100]
     if b'<!DOCTYPE' in first_bytes or b'<html' in first_bytes.lower():
         raise ValueError(
-            f"Received HTML instead of Excel file. The URL may be incorrect.\n"
-            f"URL used: {raw_url}\n"
-            f"Try accessing this URL directly in your browser to verify it returns the raw file."
+            f"Received HTML instead of Excel file. Authentication may have failed.\n"
+            f"API URL used: {api_url}\n"
+            f"Please ensure GITHUB_TOKEN is set and has 'repo' access."
         )
     
+    # GitHub API with Accept: application/vnd.github.v3.raw returns raw content directly
     excel_file = BytesIO(response.content)
     
     excel_data = pd.ExcelFile(excel_file, engine='openpyxl')
