@@ -24,10 +24,11 @@ def fetch_excel_from_github(repo_owner, repo_name, file_path, branch="main", git
     
     github_base_url = github_base_url.rstrip('/')
     
-    if 'github.com' in github_base_url:
+    if 'github.com' in github_base_url and 'alm-github' not in github_base_url:
         raw_url = f"https://raw.githubusercontent.com/{repo_owner}/{repo_name}/{branch}/{file_path}"
     else:
-        raw_url = f"{github_base_url}/raw/{repo_owner}/{repo_name}/{branch}/{file_path}"
+        # GitHub Enterprise format: {base_url}/{owner}/{repo}/raw/{branch}/{path}
+        raw_url = f"{github_base_url}/{repo_owner}/{repo_name}/raw/{branch}/{file_path}"
     
     print(f"Fetching Excel from: {raw_url}")
     
