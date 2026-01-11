@@ -412,8 +412,8 @@ DATA_FILE = os.environ.get('API_META_DATA_FILE', '../API_MetaData.xlsx')
 
 FETCH_FROM_GITHUB = os.environ.get('FETCH_FROM_GITHUB', 'false').lower() == 'true'
 GITHUB_REPO_OWNER = os.environ.get('GITHUB_REPO_OWNER', 'GDT-CDMS')
-GITHUB_REPO_NAME = os.environ.get('GITHUB_REPO_NAME', 'automation')
-GITHUB_FILE_PATH = os.environ.get('GITHUB_FILE_PATH', 'utilites/Api_MetaData.xlsx')
+GITHUB_REPO_NAME = os.environ.get('GITHUB_REPO_NAME', 'automation_utilities')
+GITHUB_FILE_PATH = os.environ.get('GITHUB_FILE_PATH', 'Api_MetaData.xlsx')
 GITHUB_BRANCH = os.environ.get('GITHUB_BRANCH', 'Apix_Backend')
 
  

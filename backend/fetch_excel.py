@@ -50,6 +50,19 @@ def fetch_excel_from_github(repo_owner, repo_name, file_path, branch="main", git
     response = requests.get(raw_url, proxies=proxies if proxies else None, verify=ssl_verify)
     response.raise_for_status()
     
+    # Check if we got HTML instead of binary Excel file
+    content_type = response.headers.get('Content-Type', '')
+    print(f"Response Content-Type: {content_type}")
+    
+    # Check first bytes to detect HTML response
+    first_bytes = response.content[:100]
+    if b'<!DOCTYPE' in first_bytes or b'<html' in first_bytes.lower():
+        raise ValueError(
+            f"Received HTML instead of Excel file. The URL may be incorrect.\n"
+            f"URL used: {raw_url}\n"
+            f"Try accessing this URL directly in your browser to verify it returns the raw file."
+        )
+    
     excel_file = BytesIO(response.content)
     
     excel_data = pd.ExcelFile(excel_file, engine='openpyxl')

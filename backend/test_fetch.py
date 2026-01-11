@@ -8,10 +8,12 @@ try:
     print("Testing fetch_excel_from_github...")
     print("=" * 60)
     
+    # Correct parameters based on your GitHub repo structure
+    # URL should be: https://alm-github.systems.uk.hsbc/GDT-CDMS/automation_utilities/raw/Apix_Backend/Api_MetaData.xlsx
     result = fetch_excel_from_github(
         repo_owner='GDT-CDMS',
-        repo_name='automation',
-        file_path='utilites/Api_MetaData.xlsx',
+        repo_name='automation_utilities',
+        file_path='Api_MetaData.xlsx',  # File at root of repo
         branch='Apix_Backend',
         github_base_url='https://alm-github.systems.uk.hsbc'
     )
