@@ -2,12 +2,14 @@ import requests
 import pandas as pd
 from io import BytesIO
 import os
+import base64
 
 
 def fetch_excel_from_github(repo_owner, repo_name, file_path, branch="main", github_base_url=None, token=None):
     """
     Fetches an Excel file from GitHub (including Enterprise) and returns parsed data.
     Handles transposed format where rows are field names and columns are records.
+    Uses GitHub API with base64 decoding (proven working approach from app.py)
     
     Args:
         repo_owner: GitHub repository owner/organization name
@@ -28,23 +30,29 @@ def fetch_excel_from_github(repo_owner, repo_name, file_path, branch="main", git
         token = os.environ.get('GITHUB_TOKEN') or os.environ.get('SERVICE_GITHUB_TOKEN')
     
     github_base_url = github_base_url.rstrip('/')
+    repo = f"{repo_owner}/{repo_name}"
     
-    # Setup headers with authentication
+    print(f"Fetching Excel from GitHub: {repo}/{file_path} (branch: {branch})")
+    
+    # Determine GitHub API base URL
+    if 'alm-github.systems.uk.hsbc' in github_base_url:
+        api_url = f"{github_base_url}/repos/{repo}/contents/{file_path}"
+    else:
+        api_url = f"https://api.github.com/repos/{repo}/contents/{file_path}"
+    
     headers = {
-        'User-Agent': 'apix-automation-tool',
-        'Accept': 'application/vnd.github.v3.raw'  # Request raw content directly
+        'Accept': 'application/vnd.github.v3+json',
+        'User-Agent': 'apix-automation-tool'
     }
     
-    # Add authentication if token is provided
+    # Add authentication if token provided
     if token:
-        # Support both old (token) and new (Bearer) GitHub auth formats
-        if token.startswith('ghp_') or token.startswith('github_pat_'):
-            headers['Authorization'] = f'Bearer {token}'
-        else:
-            headers['Authorization'] = f'token {token}'
+        headers['Authorization'] = f'Bearer {token}' if token.startswith('ghp_') or token.startswith('github_pat_') else f'token {token}'
         print("Using GitHub token authentication")
     else:
-        print("WARNING: No GitHub token provided - authentication may fail for private repos")
+        print("WARNING: No GitHub token provided")
+    
+    params = {'ref': branch}
     
     proxies = {
         'http': os.environ.get('HTTP_PROXY', os.environ.get('http_proxy')),
@@ -61,88 +69,42 @@ def fetch_excel_from_github(repo_owner, repo_name, file_path, branch="main", git
     elif ssl_cert_path:
         ssl_verify = ssl_cert_path
     
-    # GitHub Enterprise may not have /api/v3 prefix - try without it first
-    if 'github.com' in github_base_url and 'alm-github' not in github_base_url:
-        api_url = f"https://api.github.com/repos/{repo_owner}/{repo_name}/contents/{file_path}"
-    else:
-        # Try GitHub Enterprise API without /api/v3 prefix first
-        api_url = f"{github_base_url}/repos/{repo_owner}/{repo_name}/contents/{file_path}"
-    
-    print(f"Fetching Excel via GitHub API: {api_url}")
-    print(f"Branch: {branch}")
-    print(f"Token present: {bool(token)}")
-    if token:
-        print(f"Token prefix: {token[:10]}...")
-    
-    # Add branch parameter
-    params = {'ref': branch}
-    
-    response = requests.get(api_url, headers=headers, params=params, proxies=proxies if proxies else None, verify=ssl_verify)
-    
-    # If 401/404 and this is GitHub Enterprise, try with /api/v3 prefix
-    if response.status_code in [401, 404] and 'alm-github' in github_base_url:
-        print(f"First attempt failed ({response.status_code}), trying with /api/v3 prefix...")
-        api_url = f"{github_base_url}/api/v3/repos/{repo_owner}/{repo_name}/contents/{file_path}"
-        print(f"Retry URL: {api_url}")
-        response = requests.get(api_url, headers=headers, params=params, proxies=proxies if proxies else None, verify=ssl_verify)
-    
-    print(f"Response status: {response.status_code}")
-    
-    # If API fails with 401, try raw URL as fallback (may work with SSO-enabled accounts)
-    if response.status_code == 401:
-        print("API authentication failed, trying raw URL as fallback...")
-        
-        # Construct raw URL
-        if 'github.com' in github_base_url and 'alm-github' not in github_base_url:
-            raw_url = f"https://raw.githubusercontent.com/{repo_owner}/{repo_name}/{branch}/{file_path}"
-        else:
-            raw_url = f"{github_base_url}/{repo_owner}/{repo_name}/raw/{branch}/{file_path}"
-        
-        print(f"Trying raw URL: {raw_url}")
-        
-        # Try with token in header
-        raw_response = requests.get(raw_url, headers=headers, proxies=proxies if proxies else None, verify=ssl_verify)
-        
-        if raw_response.status_code == 200:
-            print("✓ Raw URL succeeded!")
-            response = raw_response
-        else:
-            print(f"Raw URL also failed with status {raw_response.status_code}")
-            raise ValueError(
-                f"401 Unauthorized - GitHub token authentication failed for both API and raw URL.\n"
-                f"API URL: {api_url}\n"
-                f"Raw URL: {raw_url}\n"
-                f"Token present: {bool(token)}\n\n"
-                f"Possible causes:\n"
-                f"  1. Token doesn't have 'repo' scope\n"
-                f"  2. Token has expired\n"
-                f"  3. GitHub Enterprise requires SSO/SAML authorization for this token\n"
-                f"     → Go to {github_base_url}/settings/tokens\n"
-                f"     → Click 'Configure SSO' next to your token\n"
-                f"     → Authorize it for your organization\n"
-                f"  4. Token format is incorrect (should start with 'ghp_' or 'github_pat_')\n\n"
-                f"Alternative: If your organization uses SSO, you may need to:\n"
-                f"  - Generate a new token\n"
-                f"  - Immediately authorize it for SSO before using it"
-            )
-    
-    response.raise_for_status()
-    
-    # Check if we got HTML instead of binary Excel file
-    content_type = response.headers.get('Content-Type', '')
-    print(f"Response Content-Type: {content_type}")
-    
-    # Check first bytes to detect HTML response
-    first_bytes = response.content[:100]
-    if b'<!DOCTYPE' in first_bytes or b'<html' in first_bytes.lower():
-        raise ValueError(
-            f"Received HTML instead of Excel file. Authentication may have failed.\n"
-            f"API URL used: {api_url}\n"
-            f"Please ensure GITHUB_TOKEN is set and has 'repo' access."
+    try:
+        response = requests.get(
+            api_url,
+            headers=headers,
+            params=params,
+            proxies=proxies if proxies else None,
+            verify=ssl_verify,
+            timeout=30
         )
-    
-    # GitHub API with Accept: application/vnd.github.v3.raw returns raw content directly
-    excel_file = BytesIO(response.content)
+        
+        response.raise_for_status()
+        
+        # GitHub API returns file content as base64
+        response_data = response.json()
+        
+        if 'content' not in response_data:
+            raise ValueError(f"No content field in GitHub API response. File might be too large or not found.")
+        
+        # Decode base64 content
+        file_content = base64.b64decode(response_data['content'])
+        
+        print(f"Successfully fetched Excel file from GitHub ({len(file_content)} bytes)")
+        
+        excel_file = BytesIO(file_content)
+        
+    except requests.exceptions.HTTPError as e:
+        if e.response.status_code == 404:
+            raise Exception(f"Excel file not found in GitHub: {repo}/{file_path} (branch: {branch})")
+        elif e.response.status_code == 403:
+            raise Exception(f"Access denied to GitHub repository. Check token permissions or repository visibility.")
+        else:
+            raise Exception(f"GitHub API error ({e.response.status_code}): {str(e)}")
+    except requests.exceptions.RequestException as e:
+        raise Exception(f"Failed to fetch Excel from GitHub: {str(e)}")
+    except Exception as e:
+        raise Exception(f"Error processing GitHub Excel file: {str(e)}")
     
     excel_data = pd.ExcelFile(excel_file, engine='openpyxl')
     
