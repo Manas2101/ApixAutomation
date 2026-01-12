@@ -36,7 +36,7 @@ def fetch_excel_from_github(repo_owner, repo_name, file_path, branch="main", git
     
     # Determine GitHub API base URL
     if 'alm-github.systems.uk.hsbc' in github_base_url:
-        api_url = f"{github_base_url}/repos/{repo}/contents/{file_path}"
+        api_url = f"{github_base_url}/api/v3/repos/{repo}/contents/{file_path}"
     else:
         api_url = f"https://api.github.com/repos/{repo}/contents/{file_path}"
     
