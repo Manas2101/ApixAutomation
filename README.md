@@ -9,7 +9,6 @@ A comprehensive automation tool for generating APIX YAML metadata files for API 
 - 👁️ **Preview**: Preview the generated YAML before committing
 - 🚀 **PR Creation**: Automatically create pull requests to add APIX files to repositories
 - 💾 **Excel Integration**: Load API metadata from Excel/CSV files
-- 📦 **GitHub Excel Support**: Fetch Excel directly from GitHub repo (no redeployment needed!)
 - 🎨 **Modern UI**: Beautiful, responsive interface built with React and TailwindCSS
 
 ## Project Structure
@@ -195,25 +194,11 @@ spec:
 
 ### Updating the Data Source
 
-#### Option 1: Local File
+To use your own Excel file:
+
 1. Replace `sample_api_data.csv` with your file
 2. Update the `DATA_FILE` path in `backend/app.py` if needed
 3. Ensure your file has all required columns
-
-#### Option 2: GitHub Excel (Recommended - No Redeployment!)
-1. Upload your Excel file to a GitHub repository
-2. Add to `.env`:
-   ```bash
-   GITHUB_EXCEL_REPO=your-org/your-repo-name
-   GITHUB_EXCEL_PATH=API_MetaData.xlsx
-   GITHUB_EXCEL_BRANCH=main
-   # For private repos only:
-   GITHUB_EXCEL_TOKEN=ghp_your_token_here
-   ```
-3. Restart the backend - that's it! Update your Excel in GitHub anytime without redeploying.
-
-📖 **See [GITHUB_EXCEL_SETUP.md](GITHUB_EXCEL_SETUP.md) for detailed setup instructions**  
-⚡ **See [QUICK_START_GITHUB_EXCEL.md](QUICK_START_GITHUB_EXCEL.md) for 3-minute setup**
 
 ### Modifying YAML Template
 
@@ -284,13 +269,13 @@ npm install
 
 ## Future Enhancements
 
-- [x] Support for Excel (.xlsx) files directly
-- [x] GitHub Excel support (fetch from GitHub repository)
+- [ ] Support for Excel (.xlsx) files directly
 - [ ] Bulk YAML generation for multiple repositories
 - [ ] Custom YAML templates
 - [ ] Integration with CI/CD pipelines
 - [ ] API authentication and user management
 - [ ] Audit trail and logging
+- [ ] Support for multiple data sources
 - [ ] YAML validation before PR creation
 
 ## Contributing
