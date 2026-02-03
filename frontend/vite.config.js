@@ -5,9 +5,14 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 3000,
+    hmr: {
+      // Use the deployment URL for HMR in production
+      clientPort: process.env.VITE_HMR_PORT ? parseInt(process.env.VITE_HMR_PORT) : 3000,
+      host: process.env.VITE_HMR_HOST || 'localhost',
+    },
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:5001',
+        target: process.env.VITE_API_URL || 'http://127.0.0.1:5001',
         changeOrigin: true,
         secure: false,
         ws: true,
